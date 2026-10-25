@@ -40,10 +40,20 @@ export interface BoardItem {
   spread: number;
   favorite: boolean;
   hidden: boolean;
+  /** Предложения поставщиков по ссылкам (последнее от каждой фирмы, не отклонённое), дешёвые первыми */
+  proposals?: Proposal[];
   /** Только для руководителя: переплата за единицу и в месяц */
   overUnit?: number;
   overMonth?: number;
   monthlyQty?: number;
+}
+
+export interface Proposal {
+  company: string;
+  price: number;
+  date: string;
+  status: 'new' | 'accepted';
+  minQty: string | null;
 }
 
 export interface SyncInfo {

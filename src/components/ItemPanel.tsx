@@ -121,6 +121,28 @@ export function ItemPanel({ item, suppliers, manager, onClose, onChanged }: {
                 </div>
               </div>
 
+              {item.proposals?.length ? (
+                <div>
+                  <h3>Предложения поставщиков</h3>
+                  <table className="ot">
+                    <thead><tr><th>Фирма</th><th className="r">Цена</th><th className="r">Когда</th></tr></thead>
+                    <tbody>
+                      {item.proposals.map((p, i) => {
+                        const best = item.offers.find((o) => o.supplierId === item.bestSupplierId)?.price ?? 0;
+                        return (
+                          <tr key={i}>
+                            <td>{p.company}{p.status === 'accepted' ? <Badge tone="best">принято</Badge> : <Badge tone="role">новое</Badge>}{p.minQty && <div className="muted" style={{ fontSize: 12 }}>мин. партия {p.minQty}</div>}</td>
+                            <td className={`r pr ${p.price < best ? 'diff-lower' : ''}`}>{rub(p.price)}</td>
+                            <td className="r sm">{longDate(p.date)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {manager && <a href="/offers" className="muted" style={{ fontSize: 13 }}>Все предложения →</a>}
+                </div>
+              ) : null}
+
               <div className="chart">
                 <h3>История цен</h3>
                 {history === null ? <p className="muted">Загружаем историю…</p> : history.length ? (

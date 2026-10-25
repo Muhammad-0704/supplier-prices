@@ -27,7 +27,8 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
   type UsageR = { item_id: string; monthly_qty: number };
 
   type SupUseR = { supplier_id: string; docs_90d: number; docs_total: number; last_date: string };
-  const [suppliers, items, offers, usage, flags, favs, lastRun, supUse] = await Promise.all([
+  type PropR = { item_id: string; company_name: string; price: number; created_at: string; status: 'new' | 'accepted'; min_qty: string | null };
+  const [suppliers, items, offers, usage, flags, favs, lastRun, supUse, props] = await Promise.all([
     all<{ id: string; name: string }>((f, t) => db.from('suppliers').select('id, name').order('name').range(f, t)),
     all<ItemR>((f, t) => db.from('items').select('id, name, unit, category').is('merged_into', null).range(f, t)),
     all<OfferR>((f, t) => db.from('offer_prices').select('item_id, supplier_id, last_price, prev_price, last_date').range(f, t)),
@@ -36,6 +37,7 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
     all<{ item_id: string }>((f, t) => db.from('user_favorites').select('item_id').eq('user_id', userId).range(f, t)),
     db.from('sync_runs').select('status, finished_at, message').order('started_at', { ascending: false }).limit(1),
     all<SupUseR>((f, t) => db.from('supplier_usage').select('supplier_id, docs_90d, docs_total, last_date').range(f, t)),
+    all<PropR>((f, t) => db.from('latest_offers').select('item_id, company_name, price, created_at, status, min_qty').range(f, t)),
   ]);
 
   const byItem = new Map<string, Offer[]>();
@@ -49,13 +51,21 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
   const fav = new Set(favs.map((f) => f.item_id));
   const now = Date.now();
 
+  const propsByItem = new Map<string, NonNullable<BoardItem['proposals']>>();
+  for (const p of props) {
+    const list = propsByItem.get(p.item_id) ?? [];
+    list.push({ company: p.company_name, price: Number(p.price), date: p.created_at, status: p.status, minQty: p.min_qty });
+    propsByItem.set(p.item_id, list);
+  }
+  propsByItem.forEach((l) => l.sort((a, b) => a.price - b.price));
+
   const boardItems: BoardItem[] = [];
   for (const it of items) {
     const d = deriveItem(
       { ...it, offers: byItem.get(it.id) ?? [], monthlyQty: qty.get(it.id), favorite: fav.has(it.id), hidden: hidden.has(it.id) },
       { now, rareDays, withMoney },
     );
-    if (d) boardItems.push(d);
+    if (d) { const pr = propsByItem.get(it.id); if (pr) d.proposals = pr; boardItems.push(d); }
   }
 
   // Поставщики без единой цены на доске не нужны

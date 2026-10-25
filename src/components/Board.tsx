@@ -76,6 +76,7 @@ export function Board({ data }: { data: BoardData }) {
     const ch = db
       .channel('board')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'offer_lines' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sync_runs' }, (p: { new?: { status?: string } }) => {
         if (p.new?.status === 'running') setSyncing(true);
         else { setSyncing(false); refresh(); }
@@ -234,6 +235,13 @@ export function Board({ data }: { data: BoardData }) {
   );
 }
 
+/** Предложение поставщика дешевле нашей лучшей цены, если есть */
+function cheaperProposal(it: BoardItem) {
+  const p = it.proposals?.[0];
+  const best = it.offers.find((o) => o.supplierId === it.bestSupplierId)?.price;
+  return p && best && p.price < best ? p : null;
+}
+
 function RareNote({ n, days, onShowAll, asCell, cols }: { n: number; days: number; onShowAll: () => void; asCell?: boolean; cols?: number }) {
   const text = <>Скрыто {n} {plural(n, 'редкий товар', 'редких товара', 'редких товаров')}: их не заказывали больше {days} дней. <button type="button" className="link" onClick={onShowAll}>Показать все</button></>;
   if (asCell) return <tr className="more"><td colSpan={cols}><span className="g">{text}</span></td></tr>;
@@ -260,6 +268,7 @@ function Matrix(props: {
           <span className="mt">
             {it.unit} · берём у {curName}
             {over ? <> · <b>+{rub(it.overUnit!)}</b></> : it.rare ? ` · ${it.agoAny} дн. не заказывали` : ''}
+            {cheaperProposal(it) && <> · <span className="prop" title={`Предложение от ${cheaperProposal(it)!.company}`}>предл. {rub(cheaperProposal(it)!.price)}</span></>}
           </span>
         </th>
         {sups.map((s) => {

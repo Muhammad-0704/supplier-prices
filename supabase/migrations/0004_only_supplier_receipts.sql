@@ -2,7 +2,7 @@
 -- и прочие виды операций приходной накладной в доску не попадают. Пустой вид операции (демо-режим) считается поступлением.
 
 create or replace function public.is_supplier_receipt(op text) returns boolean
-language sql immutable as $$ select op is null or op = 'ПоступлениеОтПоставщика' $$;
+language sql immutable set search_path = '' as $$ select op is null or op = 'ПоступлениеОтПоставщика' $$;
 
 create or replace view public.offer_prices with (security_invoker = true) as
 with p as (

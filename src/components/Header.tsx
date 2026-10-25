@@ -1,9 +1,16 @@
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/server';
 import type { Role } from '@/lib/types';
 import { ThemeToggle } from './ThemeToggle';
 import { Badge } from './ui';
 
-export function Header({ role, userName, current, children }: { role: Role; userName: string; current: 'board' | 'team'; children?: React.ReactNode }) {
+export async function Header({ role, userName, current, children }: { role: Role; userName: string; current: 'board' | 'team' | 'offers'; children?: React.ReactNode }) {
+  // Счётчик новых предложений от поставщиков — только руководителю
+  let newOffers = 0;
+  if (role === 'manager') {
+    const { count } = await createClient().from('offer_lines').select('id', { count: 'exact', head: true }).eq('status', 'new');
+    newOffers = count ?? 0;
+  }
   return (
     <header className="top">
       <div className="brand">
@@ -18,6 +25,11 @@ export function Header({ role, userName, current, children }: { role: Role; user
       <div className="top__right">
         <nav className="nav" aria-label="Разделы">
           <Link href="/" aria-current={current === 'board' ? 'page' : undefined}>Доска</Link>
+          {role === 'manager' && (
+            <Link href="/offers" aria-current={current === 'offers' ? 'page' : undefined}>
+              Предложения{newOffers > 0 && <span className="cnt-new" aria-label={`новых: ${newOffers}`}>{newOffers}</span>}
+            </Link>
+          )}
           {role === 'manager' && <Link href="/team" aria-current={current === 'team' ? 'page' : undefined}>Команда</Link>}
           <Link href="/account">Пароль</Link>
           <ThemeToggle />
