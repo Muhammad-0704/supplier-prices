@@ -136,11 +136,19 @@ export const mockFetcher: Fetcher = async (url) => {
     entity === 'Catalog_Номенклатура' ? b.items :
     entity === 'Catalog_КлассификаторЕдиницИзмерения' ? b.units :
     entity === 'Catalog_Контрагенты' ? b.suppliers :
-    entity === 'Document_ПриходнаяНакладная' ? b.receipts : [];
-  if (!rows.length && entity !== 'Document_ПриходнаяНакладная') {
+    entity === 'Document_ПриходнаяНакладная' ? b.receipts :
+    entity === 'Document_ПриходнаяНакладная_Запасы' ? b.receipts.flatMap((d) => (d.Запасы as ODataRow[]).map((l) => ({ Ref_Key: d.Ref_Key, ...l }))) : [];
+  if (!rows.length && !entity.startsWith('Document_ПриходнаяНакладная')) {
     return new Response('Not found', { status: 404 });
   }
   const filter = u.searchParams.get('$filter') || '';
+  const guids = [...filter.matchAll(/Ref_Key eq guid'([^']+)'/g)].map((m) => m[1]);
+  if (guids.length) rows = rows.filter((r) => guids.includes(String(r.Ref_Key)));
+  // Как настоящая 1С: при $select без табличной части строк в шапке нет
+  const select = u.searchParams.get('$select');
+  if (select && entity === 'Document_ПриходнаяНакладная' && !select.split(',').includes('Запасы')) {
+    rows = rows.map(({ Запасы: _omit, ...rest }) => rest);
+  }
   const m = /Date ge datetime'([^']+)'/.exec(filter);
   if (m) rows = rows.filter((d) => String(d.Date) >= m[1]);
   rows = [...rows].sort((a, z) => String(a.Ref_Key).localeCompare(String(z.Ref_Key)));

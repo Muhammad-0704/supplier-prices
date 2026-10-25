@@ -33,8 +33,13 @@ export const SELECT = {
   items: ['Ref_Key', 'Description', 'IsFolder', 'Parent_Key', 'DeletionMark', ONEC.items.unitField],
   units: ['Ref_Key', 'Description'],
   suppliers: ['Ref_Key', 'Description', 'IsFolder', ONEC.suppliers.innField],
-  receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField, ONEC.receipts.linesField],
+  /** Шапки накладных без табличной части: строки забираются отдельно, иначе ответ слишком большой */
+  receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField],
+  lines: ['Ref_Key', 'LineNumber', ONEC.receipts.itemField, ONEC.receipts.qtyField, ONEC.receipts.priceField],
 };
+
+/** Табличная часть как отдельный объект OData: Document_ПриходнаяНакладная_Запасы */
+export const LINES_ENTITY = `${ONEC.receipts.entity}_${ONEC.receipts.linesField}`;
 
 export const EMPTY_REF = '00000000-0000-0000-0000-000000000000';
 

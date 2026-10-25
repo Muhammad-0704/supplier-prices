@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapItems, mapReceipts, mapSuppliers, onecDateToIso } from '../src/lib/onec/map';
+import { mapItems, mapReceipts, mapSuppliers, onecDateToIso, postedReceiptRefs } from '../src/lib/onec/map';
 import { basicAuth, buildUrl, createODataClient, odataDate } from '../src/lib/onec/odata';
 import { buildMockBase, mockFetcher } from '../src/lib/onec/mock';
 
@@ -57,8 +57,18 @@ describe('разбор OData 1С', () => {
     expect(items.length).toBe(base.items.length);
     const mapped = mapItems(items, await client.list('Catalog_КлассификаторЕдиницИзмерения'));
     expect(mapped.length).toBeGreaterThanOrEqual(200);
-    const docs = mapReceipts(await client.list('Document_ПриходнаяНакладная', { filter: `Date ge ${odataDate(new Date(Date.now() - 200 * 86_400_000))}` }));
+    // Шапки без строк, строки отдельным объектом «Запасы» пачками по Ref_Key — как в синхронизации
+    const heads = await client.list('Document_ПриходнаяНакладная', { filter: `Date ge ${odataDate(new Date(Date.now() - 200 * 86_400_000))}`, select: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', 'Контрагент_Key'] });
+    expect(heads[0]).not.toHaveProperty('Запасы');
+    const refs = postedReceiptRefs(heads);
+    const sep: Record<string, unknown>[] = [];
+    for (let i = 0; i < refs.length; i += 15) {
+      sep.push(...await client.list('Document_ПриходнаяНакладная_Запасы', { filter: refs.slice(i, i + 15).map((r) => `Ref_Key eq guid'${r}'`).join(' or ') }));
+    }
+    const docs = mapReceipts(heads, sep);
     expect(docs.lines.length).toBeGreaterThan(500);
+    const headRefs = new Set(heads.map((h) => h.Ref_Key));
+    expect(docs.lines.length).toBe(mapReceipts(base.receipts.filter((d) => headRefs.has(d.Ref_Key))).lines.length);
 
     // Зависающий ответ: больше 4 записей «замерзает», клиент уменьшает порцию и дочитывает всё
     const rows = Array.from({ length: 25 }, (_, i) => ({ Ref_Key: String(i).padStart(3, '0') }));

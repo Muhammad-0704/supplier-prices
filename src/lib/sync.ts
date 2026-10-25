@@ -1,10 +1,10 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ONEC, SELECT, onecMode } from './onec/config';
-import { mapItems, mapReceipts, mapSuppliers, type ReceiptLine } from './onec/map';
+import { LINES_ENTITY, ONEC, SELECT, onecMode } from './onec/config';
+import { mapItems, mapReceipts, mapSuppliers, postedReceiptRefs, type ReceiptLine } from './onec/map';
 import { freshConnectionFetcher } from './onec/fetcher';
 import { mockFetcher } from './onec/mock';
-import { createODataClient, odataDate, type ODataClient } from './onec/odata';
+import { createODataClient, odataDate, type ODataClient, type ODataRow } from './onec/odata';
 
 export interface SyncResult {
   ok: boolean;
@@ -80,9 +80,21 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
     await upsertChunks(db, 'suppliers', suppliers.map((s) => ({ ...s, updated_at: now })), 'onec_ref');
 
     const since = await syncSince(db);
-    const rawDocs = await onec.list(ONEC.receipts.entity, { filter: `Date ge ${odataDate(since)}`, select: SELECT.receipts, pageSize: 6 });
-    const { lines, docRefs } = mapReceipts(rawDocs);
-    log(`накладные с ${since.toISOString().slice(0, 10)}: ${rawDocs.length}, строк ${lines.length}`);
+    const rawDocs = await onec.list(ONEC.receipts.entity, { filter: `Date ge ${odataDate(since)}`, select: SELECT.receipts, pageSize: 60 });
+    log(`шапки накладных с ${since.toISOString().slice(0, 10)}: ${rawDocs.length}`);
+
+    // Строки забираем отдельно, пачками по 15 накладных и по 3 запроса одновременно
+    const refs = postedReceiptRefs(rawDocs);
+    const batches: string[][] = [];
+    for (let i = 0; i < refs.length; i += 15) batches.push(refs.slice(i, i + 15));
+    const rawLines: ODataRow[] = [];
+    for (let i = 0; i < batches.length; i += 3) {
+      const part = await Promise.all(batches.slice(i, i + 3).map((b) =>
+        onec.list(LINES_ENTITY, { filter: b.map((r) => `Ref_Key eq guid'${r}'`).join(' or '), select: SELECT.lines, pageSize: 60 })));
+      part.forEach((p) => rawLines.push(...p));
+    }
+    const { lines, docRefs } = mapReceipts(rawDocs, rawLines);
+    log(`строк накладных: ${rawLines.length}, к записи ${lines.length}`);
 
     const itemIds = await refMap(db, 'items');
     const supplierIds = await refMap(db, 'suppliers');

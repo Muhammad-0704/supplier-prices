@@ -61,11 +61,28 @@ export function mapSuppliers(rows: ODataRow[]): SupplierRow[] {
     }));
 }
 
-/** Приходные накладные → строки закупок. Непроведённые и помеченные на удаление дают только docRef (их строки удалятся). */
-export function mapReceipts(rows: ODataRow[]): MappedReceipts {
+/** Накладные, строки которых нужно забрать: проведённые, не удалённые, с поставщиком. */
+export function postedReceiptRefs(rows: ODataRow[]): string[] {
+  return rows
+    .filter((d) => d.Posted === true && d.DeletionMark !== true && str(d[ONEC.receipts.supplierField]) && str(d[ONEC.receipts.supplierField]) !== EMPTY_REF)
+    .map((d) => str(d.Ref_Key))
+    .filter(Boolean);
+}
+
+/**
+ * Приходные накладные → строки закупок. Строки берутся из табличной части внутри документа
+ * или из отдельно загруженного объекта «Запасы» (separateLines, связь по Ref_Key).
+ * Непроведённые и помеченные на удаление дают только docRef (их строки удалятся).
+ */
+export function mapReceipts(rows: ODataRow[], separateLines?: ODataRow[]): MappedReceipts {
   const lines: ReceiptLine[] = [];
   const docRefs: string[] = [];
   const cfg = ONEC.receipts;
+  const byDoc = new Map<string, ODataRow[]>();
+  for (const l of separateLines ?? []) {
+    const ref = str(l.Ref_Key);
+    byDoc.set(ref, [...(byDoc.get(ref) ?? []), l]);
+  }
   for (const d of rows) {
     const ref = str(d.Ref_Key);
     if (!ref) continue;
@@ -74,7 +91,8 @@ export function mapReceipts(rows: ODataRow[]): MappedReceipts {
     const supplier = str(d[cfg.supplierField]);
     if (!supplier || supplier === EMPTY_REF) continue;
     const date = onecDateToIso(d.Date);
-    const tab = Array.isArray(d[cfg.linesField]) ? (d[cfg.linesField] as ODataRow[]) : [];
+    const inline = Array.isArray(d[cfg.linesField]) ? (d[cfg.linesField] as ODataRow[]) : null;
+    const tab = inline ?? (byDoc.get(ref) ?? []).sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
     tab.forEach((l, i) => {
       const item = str(l[cfg.itemField]);
       const price = n(l[cfg.priceField]);
