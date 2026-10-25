@@ -94,3 +94,68 @@ export function Picker({ label, value, options, allLabel, onChange, searchPlaceh
     </div>
   );
 }
+
+/** Кнопка-иконка с коротким меню выбора (сортировка). Подсвечена, если выбран не первый вариант. */
+export function ChoiceMenu<T extends string>({ label, value, options, onChange, icon }: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (v: T) => void;
+  icon: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const root = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const current = options.find((o) => o.value === value);
+  const changed = options[0] && value !== options[0].value;
+
+  useEffect(() => {
+    if (!open) return;
+    setActive(Math.max(0, options.findIndex((o) => o.value === value)));
+    listRef.current?.focus();
+    const away = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', away);
+    return () => document.removeEventListener('mousedown', away);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  function pick(v: T) { onChange(v); setOpen(false); btn.current?.focus(); }
+
+  return (
+    <div className="pk pk--icon" ref={root}>
+      <button ref={btn} type="button" className={`pk__btn pk__btn--icon${changed ? ' pk__btn--on' : ''}`} aria-haspopup="listbox" aria-expanded={open}
+        aria-label={`${label}: ${current?.label ?? ''}`} title={`${label}: ${current?.label ?? ''}`} onClick={() => setOpen((v) => !v)}>
+        {icon}
+        {changed && <span className="pk__val">{current?.label}</span>}
+      </button>
+      {open && (
+        <div className="pk__pop pk__pop--right" role="listbox" aria-label={label} tabIndex={-1} ref={listRef}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(options.length - 1, a + 1)); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+            else if (e.key === 'Enter') { e.preventDefault(); pick(options[active].value); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setOpen(false); btn.current?.focus(); }
+          }}>
+          <div className="pk__title">{label}</div>
+          <div className="pk__list">
+            {options.map((o, i) => (
+              <div key={o.value} role="option" aria-selected={o.value === value} className={`pk__opt${i === active ? ' pk__opt--active' : ''}`}
+                onMouseEnter={() => setActive(i)} onClick={() => pick(o.value)}>
+                <span className="pk__check" aria-hidden="true">{o.value === value ? '✓' : ''}</span>
+                <span className="pk__label">{o.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const SortIcon = () => (
+  <svg className="pk__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
+  </svg>
+);

@@ -6,7 +6,7 @@ import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardData, BoardItem, Supplier } from '@/lib/types';
 import { Button, ItemCard, PriceCell, RefreshIcon, SearchField, Segmented, StatStrip, SyncStatus } from './ui';
 import { ItemPanel } from './ItemPanel';
-import { Picker } from './Picker';
+import { ChoiceMenu, Picker, SortIcon } from './Picker';
 
 type Asm = 'active' | 'all' | 'fav' | 'hidden';
 type Sort = 'cat' | 'save' | 'spread' | 'recent' | 'az';
@@ -184,13 +184,13 @@ export function Board({ data }: { data: BoardData }) {
           options={categories.map(([c, n]) => ({ value: c, label: c, count: n }))} />
         <Picker label="Поставщик" allLabel="Все поставщики" searchPlaceholder="Найти поставщика" value={supF} onChange={setSupF}
           options={supplierOptions} />
-        <select className="select" aria-label="Сортировка" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-          <option value="cat">По категориям</option>
-          {manager && <option value="save">Сначала переплаты</option>}
-          <option value="spread">Сначала большой разброс</option>
-          <option value="recent">Недавно закупали</option>
-          <option value="az">По алфавиту</option>
-        </select>
+        <ChoiceMenu<Sort> label="Сортировка" value={sort} onChange={setSort} icon={<SortIcon />} options={[
+          { value: 'cat', label: 'По категориям' },
+          ...(manager ? [{ value: 'save' as Sort, label: 'Сначала переплаты' }] : []),
+          { value: 'spread', label: 'Сначала большой разброс' },
+          { value: 'recent', label: 'Недавно закупали' },
+          { value: 'az', label: 'По алфавиту' },
+        ]} />
         <Segmented<View> label="Вид" value={view} onChange={(v) => { setView(v); store.set('pb_view', v); }} options={[{ value: 'mx', label: 'Матрица' }, { value: 'list', label: 'Карточки' }]} />
       </div>
       <div className="bar">

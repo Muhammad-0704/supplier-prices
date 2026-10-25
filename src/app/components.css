@@ -158,3 +158,13 @@
 .pk__empty { padding: 14px 10px; color: var(--ink-muted); font-size: 13.5px; text-align: center; }
 /* На телефоне список во всю ширину строки фильтров */
 @media (max-width: 640px) { .bar { position: relative; } .pk { position: static; flex: 1 1 calc(50% - 4px); } .pk__pop { left: 0; right: 0; width: auto; max-width: none; } }
+.pk--icon { flex: none; }
+.pk__btn--icon { width: auto; min-width: var(--control-h); padding: 0 10px; justify-content: center; }
+.pk__icon { width: 18px; height: 18px; flex: none; }
+.pk__btn--icon .pk__val { max-width: 180px; }
+.pk__pop--right { left: auto; right: 0; width: 260px; }
+.pk__pop--right .pk__label { white-space: normal; }
+.pk__pop[role="listbox"]:focus { outline: none; }
+.pk__title { padding: 10px 12px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+/* На телефоне кнопка сортировки слева, меню раскрываем вправо от неё */
+@media (max-width: 640px) { .pk--icon { position: relative; } .pk__pop--right { left: 0; right: auto; width: 260px; } }
