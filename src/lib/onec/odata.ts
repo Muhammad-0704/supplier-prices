@@ -43,48 +43,63 @@ export function createODataClient(opts: ODataClientOptions) {
   const fetcher: Fetcher = opts.fetcher ?? ((u, i) => fetch(u, i));
   const auth = basicAuth(opts.user, opts.password);
 
-  async function get(url: string): Promise<ODataRow[]> {
+  const entityOf = (url: string) => decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
+
+  async function once(url: string): Promise<ODataRow[]> {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 90_000);
-    let res: Response;
     try {
-      res = await fetcher(url, { headers: { Authorization: auth, Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
-    } catch (e) {
-      throw new ODataError(`1С:Фреш не отвечает (${(e as Error).message}). Проверьте адрес ONEC_ODATA_URL.`);
+      const res = await fetcher(url, { headers: { Authorization: auth, Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
+      if (res.status === 401 || res.status === 403) {
+        throw new ODataError('1С:Фреш отклонил логин или пароль служебного пользователя OData. Проверьте ONEC_USER и ONEC_PASSWORD.', res.status);
+      }
+      if (res.status === 404) {
+        throw new ODataError(`Объект ${entityOf(url)} не найден в OData. Проверьте, что он отмечен в настройке стандартного интерфейса OData в 1С.`, 404);
+      }
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new ODataError(`1С вернула ошибку ${res.status} на ${entityOf(url)}: ${text.slice(0, 300)}`, res.status);
+      }
+      const body = (await res.json()) as { value?: ODataRow[] };
+      return body.value ?? [];
     } finally {
       clearTimeout(timer);
     }
-    if (res.status === 401 || res.status === 403) {
-      throw new ODataError('1С:Фреш отклонил логин или пароль служебного пользователя OData. Проверьте ONEC_USER и ONEC_PASSWORD.', res.status);
+  }
+
+  /** Один запрос с повтором: 1С:Фреш иногда обрывает долгие ответы. Ошибки доступа не повторяются. */
+  async function get(url: string): Promise<ODataRow[]> {
+    const started = Date.now();
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const rows = await once(url);
+        if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} skip=${new URL(url).searchParams.get('$skip')} → ${rows.length} за ${((Date.now() - started) / 1000).toFixed(1)}с`);
+        return rows;
+      } catch (e) {
+        if (e instanceof ODataError && e.status) throw e;
+        if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} попытка ${attempt} оборвалась: ${(e as Error).message}`);
+        if (attempt >= 3) throw new ODataError(`1С:Фреш не отдал ${entityOf(url)} за 3 попытки (${(e as Error).message}).`);
+        await new Promise((r) => setTimeout(r, 1500 * attempt));
+      }
     }
-    if (res.status === 404) {
-      throw new ODataError('Объект не найден в OData. Проверьте, что он включён в настройке стандартного интерфейса OData в 1С.', 404);
-    }
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new ODataError(`1С вернула ошибку ${res.status}: ${text.slice(0, 300)}`, res.status);
-    }
-    const body = (await res.json()) as { value?: ODataRow[] };
-    const rows = body.value ?? [];
-    if (!opts.fetcher) console.log(`[odata] ${decodeURIComponent(new URL(url).pathname.split('/').pop() || '')} skip=${new URL(url).searchParams.get('$skip')} → ${rows.length}`);
-    return rows;
   }
 
   /** Читает всю выборку постранично ($top/$skip). */
-  async function list(entity: string, params: { filter?: string; select?: string[] } = {}): Promise<ODataRow[]> {
+  async function list(entity: string, params: { filter?: string; select?: string[]; pageSize?: number } = {}): Promise<ODataRow[]> {
+    const size = params.pageSize ?? ONEC.pageSize;
     const out: ODataRow[] = [];
-    for (let skip = 0; ; skip += ONEC.pageSize) {
+    for (let skip = 0; ; skip += size) {
       const url = buildUrl(opts.baseUrl, entity, {
         $format: 'json',
         $filter: params.filter,
         $select: params.select?.join(','),
-        $top: ONEC.pageSize,
+        $top: size,
         $skip: skip,
         $orderby: 'Ref_Key',
       });
       const page = await get(url);
       out.push(...page);
-      if (page.length < ONEC.pageSize) break;
+      if (page.length < size) break;
     }
     return out;
   }
