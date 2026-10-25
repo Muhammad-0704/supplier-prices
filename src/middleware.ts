@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC = ['/login', '/api/sync'];
+const PUBLIC = ['/login', '/api/sync', '/api/onec-probe'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
