@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { rub, rubFine, pct, plural, shortDate, longDate, syncLabel } from '@/lib/format';
 import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardData, BoardItem, Supplier } from '@/lib/types';
-import { Button, Chip, ItemCard, PriceCell, RefreshIcon, SearchField, Segmented, StatStrip, SyncStatus } from './ui';
+import { Button, ItemCard, PriceCell, RefreshIcon, SearchField, Segmented, StatStrip, SyncStatus } from './ui';
 import { ItemPanel } from './ItemPanel';
 
 type Asm = 'active' | 'all' | 'fav' | 'hidden';
@@ -173,7 +173,11 @@ export function Board({ data }: { data: BoardData }) {
 
       <div className="bar">
         <SearchField value={q} onValueChange={setQ} placeholder="Найти товар: сливки, стакан 350…" />
-        <select className="select" aria-label="Поставщик" value={supF} onChange={(e) => setSupF(e.target.value)}>
+        <select className={`select${cat !== 'all' ? ' select--on' : ''}`} aria-label="Категория" value={cat} onChange={(e) => setCat(e.target.value)}>
+          <option value="all">Все категории</option>
+          {categories.map(([c, n]) => <option key={c} value={c}>{c} · {n}</option>)}
+        </select>
+        <select className={`select${supF !== 'all' ? ' select--on' : ''}`} aria-label="Поставщик" value={supF} onChange={(e) => setSupF(e.target.value)}>
           <option value="all">Все поставщики</option>
           {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
@@ -194,10 +198,6 @@ export function Board({ data }: { data: BoardData }) {
         {view === 'mx' && (
           <label className="tog"><input type="checkbox" checked={compact} onChange={(e) => { setCompact(e.target.checked); store.set('pb_compact', e.target.checked ? '1' : '0'); }} /> Компактно</label>
         )}
-      </div>
-      <div className="chips" role="group" aria-label="Категории">
-        <Chip pressed={cat === 'all'} count={data.items.length} onClick={() => setCat('all')}>Все</Chip>
-        {categories.map(([c, n]) => <Chip key={c} pressed={cat === c} count={n} onClick={() => setCat(c)}>{c}</Chip>)}
       </div>
 
       {view === 'mx' ? (

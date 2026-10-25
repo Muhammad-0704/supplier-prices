@@ -269,3 +269,6 @@ button { font: inherit; }
 .ord-row__acts .pb-menu__btn { height: 34px; }
 /* Пустое уведомление не выглядывает из-под края экрана */
 .toast:not(.on) { visibility: hidden; transition: transform .2s, visibility 0s .2s; }
+/* Выбранный фильтр заметен, чтобы не забыть его снять */
+.select--on { border-color: var(--signal); background: var(--signal-soft); font-weight: 600; }
+.bar .select { max-width: 240px; }
