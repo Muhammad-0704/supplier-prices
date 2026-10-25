@@ -102,7 +102,7 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
       const item_id = itemIds.get(l.item_ref);
       const supplier_id = supplierIds.get(l.supplier_ref);
       if (!item_id || !supplier_id) return null;
-      return { onec_doc_ref: l.onec_doc_ref, line_no: l.line_no, doc_number: l.doc_number, doc_date: l.doc_date, item_id, supplier_id, price: l.price, qty: l.qty };
+      return { onec_doc_ref: l.onec_doc_ref, line_no: l.line_no, doc_number: l.doc_number, doc_date: l.doc_date, item_id, supplier_id, price: l.price, qty: l.qty, operation: l.operation };
     };
     const rows = lines.map(toRow).filter((r): r is NonNullable<typeof r> => r !== null);
 

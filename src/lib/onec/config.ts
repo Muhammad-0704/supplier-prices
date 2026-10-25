@@ -18,6 +18,8 @@ export const ONEC = {
   receipts: {
     entity: 'Document_ПриходнаяНакладная',
     supplierField: 'Контрагент_Key',
+    /** Вид операции: поступление от поставщика, возврат от покупателя и т.д. */
+    operationField: 'ВидОперации',
     /** Табличная часть с товарами */
     linesField: 'Запасы',
     itemField: 'Номенклатура_Key',
@@ -34,7 +36,7 @@ export const SELECT = {
   units: ['Ref_Key', 'Description'],
   suppliers: ['Ref_Key', 'Description', 'IsFolder', ONEC.suppliers.innField],
   /** Шапки накладных без табличной части: строки забираются отдельно, иначе ответ слишком большой */
-  receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField],
+  receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField, ONEC.receipts.operationField],
   lines: ['Ref_Key', 'LineNumber', ONEC.receipts.itemField, ONEC.receipts.qtyField, ONEC.receipts.priceField],
 };
 

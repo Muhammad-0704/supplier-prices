@@ -12,6 +12,8 @@ export interface ReceiptLine {
   item_ref: string;
   price: number;
   qty: number;
+  /** Вид операции накладной как в 1С, например «ПоступлениеОтПоставщика» */
+  operation: string | null;
 }
 export interface MappedReceipts {
   /** Проведённые накладные: строки, которые надо записать */
@@ -94,6 +96,7 @@ export function mapReceipts(rows: ODataRow[], separateLines?: ODataRow[]): Mappe
     const supplier = str(d[cfg.supplierField]);
     if (!supplier || supplier === EMPTY_REF) continue;
     const date = onecDateToIso(d.Date);
+    const operation = str(d[cfg.operationField]).trim() || null;
     const inline = Array.isArray(d[cfg.linesField]) ? (d[cfg.linesField] as ODataRow[]) : null;
     const tab = inline ?? [...(byDoc.get(ref)?.values() ?? [])].sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
     tab.forEach((l, i) => {
@@ -109,6 +112,7 @@ export function mapReceipts(rows: ODataRow[], separateLines?: ODataRow[]): Mappe
         item_ref: item,
         price: Math.round(price * 100) / 100,
         qty: n(l[cfg.qtyField]),
+        operation,
       });
     });
   }
