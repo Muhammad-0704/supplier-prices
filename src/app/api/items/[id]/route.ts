@@ -18,6 +18,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .from('purchases')
     .select('supplier_id, doc_date, price, doc_number')
     .in('item_id', ids)
+    .or('operation.is.null,operation.eq.ПоступлениеОтПоставщика')
     .gte('doc_date', since)
     .order('doc_date');
   if (error) return NextResponse.json({ history: [], error: error.message }, { status: 500 });
