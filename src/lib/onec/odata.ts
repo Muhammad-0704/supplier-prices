@@ -12,6 +12,8 @@ export interface ODataClientOptions {
   password: string;
   fetcher?: Fetcher;
   timeoutMs?: number;
+  /** Сколько ждать следующую часть ответа, прежде чем считать его зависшим */
+  stallMs?: number;
 }
 
 export class ODataError extends Error {
@@ -45,9 +47,33 @@ export function createODataClient(opts: ODataClientOptions) {
 
   const entityOf = (url: string) => decodeURIComponent(new URL(url).pathname.split('/').pop() || '');
 
+  /** Ответ перестал приходить: признак «замерзания» большой передачи. Лечится порцией поменьше. */
+  class StallError extends Error {}
+  const STALL_MS = opts.stallMs ?? 8_000;
+
+  async function readBody(res: Response, ctrl: AbortController): Promise<string> {
+    if (!res.body) return res.text();
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    for (;;) {
+      let idle: ReturnType<typeof setTimeout> | undefined;
+      const stalled = new Promise<never>((_, reject) => {
+        idle = setTimeout(() => { ctrl.abort(); reject(new StallError('ответ 1С перестал приходить')); }, STALL_MS);
+      });
+      try {
+        const { done, value } = await Promise.race([reader.read(), stalled]);
+        if (done) break;
+        chunks.push(value);
+      } finally {
+        clearTimeout(idle);
+      }
+    }
+    return Buffer.concat(chunks).toString('utf8');
+  }
+
   async function once(url: string): Promise<ODataRow[]> {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 90_000);
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 60_000);
     try {
       const res = await fetcher(url, { headers: { Authorization: auth, Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
       if (res.status === 401 || res.status === 403) {
@@ -60,35 +86,39 @@ export function createODataClient(opts: ODataClientOptions) {
         const text = await res.text().catch(() => '');
         throw new ODataError(`1С вернула ошибку ${res.status} на ${entityOf(url)}: ${text.slice(0, 300)}`, res.status);
       }
-      const body = (await res.json()) as { value?: ODataRow[] };
+      const body = JSON.parse(await readBody(res, ctrl)) as { value?: ODataRow[] };
       return body.value ?? [];
     } finally {
       clearTimeout(timer);
     }
   }
 
-  /** Один запрос с повтором: 1С:Фреш иногда обрывает долгие ответы. Ошибки доступа не повторяются. */
+  /** Один запрос с повтором. Ошибки доступа не повторяются; зависший ответ отдаётся наверх, чтобы уменьшить порцию. */
   async function get(url: string): Promise<ODataRow[]> {
     const started = Date.now();
     for (let attempt = 1; ; attempt++) {
       try {
         const rows = await once(url);
-        if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} skip=${new URL(url).searchParams.get('$skip')} → ${rows.length} за ${((Date.now() - started) / 1000).toFixed(1)}с`);
+        if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} skip=${new URL(url).searchParams.get('$skip')} top=${new URL(url).searchParams.get('$top')} → ${rows.length} за ${((Date.now() - started) / 1000).toFixed(1)}с`);
         return rows;
       } catch (e) {
         if (e instanceof ODataError && e.status) throw e;
+        if (e instanceof StallError) throw e;
         if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} попытка ${attempt} оборвалась: ${(e as Error).message}`);
         if (attempt >= 3) throw new ODataError(`1С:Фреш не отдал ${entityOf(url)} за 3 попытки (${(e as Error).message}).`);
-        await new Promise((r) => setTimeout(r, 1500 * attempt));
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
     }
   }
 
-  /** Читает всю выборку постранично ($top/$skip). */
+  /**
+   * Читает всю выборку постранично ($top/$skip). Большие ответы между Россией и зарубежными серверами
+   * иногда «замерзают» на полпути, поэтому порции маленькие, а при зависании порция уменьшается вдвое.
+   */
   async function list(entity: string, params: { filter?: string; select?: string[]; pageSize?: number } = {}): Promise<ODataRow[]> {
-    const size = params.pageSize ?? ONEC.pageSize;
+    let size = params.pageSize ?? ONEC.pageSize;
     const out: ODataRow[] = [];
-    for (let skip = 0; ; skip += size) {
+    for (let skip = 0; ; ) {
       const url = buildUrl(opts.baseUrl, entity, {
         $format: 'json',
         $filter: params.filter,
@@ -97,9 +127,21 @@ export function createODataClient(opts: ODataClientOptions) {
         $skip: skip,
         $orderby: 'Ref_Key',
       });
-      const page = await get(url);
+      let page: ODataRow[];
+      try {
+        page = await get(url);
+      } catch (e) {
+        if (e instanceof StallError && size > 1) {
+          size = Math.max(1, Math.floor(size / 2));
+          if (!opts.fetcher) console.log(`[odata] ${entity}: ответ завис, уменьшаю порцию до ${size}`);
+          continue;
+        }
+        if (e instanceof StallError) throw new ODataError(`1С:Фреш не смог отдать даже одну запись ${entity}: соединение зависает.`);
+        throw e;
+      }
       out.push(...page);
       if (page.length < size) break;
+      skip += size;
     }
     return out;
   }

@@ -67,7 +67,7 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
     const t0 = Date.now();
     const log = (m: string) => console.log(`[sync] ${((Date.now() - t0) / 1000).toFixed(1)}s ${m}`);
     const [rawItems, rawUnits, rawSuppliers] = await Promise.all([
-      onec.list(ONEC.items.entity, { select: SELECT.items, pageSize: 200 }),
+      onec.list(ONEC.items.entity, { select: SELECT.items, pageSize: 60 }),
       onec.list(ONEC.units.entity, { select: SELECT.units }).catch(() => []),
       onec.list(ONEC.suppliers.entity, { select: SELECT.suppliers }),
     ]);
@@ -79,7 +79,7 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
     await upsertChunks(db, 'suppliers', suppliers.map((s) => ({ ...s, updated_at: now })), 'onec_ref');
 
     const since = await syncSince(db);
-    const rawDocs = await onec.list(ONEC.receipts.entity, { filter: `Date ge ${odataDate(since)}`, select: SELECT.receipts, pageSize: 50 });
+    const rawDocs = await onec.list(ONEC.receipts.entity, { filter: `Date ge ${odataDate(since)}`, select: SELECT.receipts, pageSize: 6 });
     const { lines, docRefs } = mapReceipts(rawDocs);
     log(`накладные с ${since.toISOString().slice(0, 10)}: ${rawDocs.length}, строк ${lines.length}`);
 

@@ -60,6 +60,22 @@ describe('разбор OData 1С', () => {
     const docs = mapReceipts(await client.list('Document_ПриходнаяНакладная', { filter: `Date ge ${odataDate(new Date(Date.now() - 200 * 86_400_000))}` }));
     expect(docs.lines.length).toBeGreaterThan(500);
 
+    // Зависающий ответ: больше 4 записей «замерзает», клиент уменьшает порцию и дочитывает всё
+    const rows = Array.from({ length: 25 }, (_, i) => ({ Ref_Key: String(i).padStart(3, '0') }));
+    const stally = createODataClient({
+      baseUrl: 'https://x', user: 'u', password: 'p', stallMs: 50,
+      fetcher: async (url) => {
+        const u = new URL(url);
+        const top = Number(u.searchParams.get('$top')), skip = Number(u.searchParams.get('$skip'));
+        const json = JSON.stringify({ value: rows.slice(skip, skip + top) });
+        if (top <= 4) return new Response(json, { status: 200 });
+        const body = new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(json.slice(0, 10))); } });
+        return new Response(body, { status: 200 });
+      },
+    });
+    const got = await stally.list('Catalog_X', { pageSize: 16 });
+    expect(got.map((r) => r.Ref_Key)).toEqual(rows.map((r) => r.Ref_Key));
+
     const denied = createODataClient({ baseUrl: 'https://x', user: 'u', password: 'p', fetcher: async () => new Response('', { status: 401 }) });
     await expect(denied.list('Catalog_Контрагенты')).rejects.toThrow(/логин или пароль/);
   });
