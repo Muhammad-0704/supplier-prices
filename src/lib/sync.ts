@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ONEC, SELECT, onecMode } from './onec/config';
 import { mapItems, mapReceipts, mapSuppliers, type ReceiptLine } from './onec/map';
+import { freshConnectionFetcher } from './onec/fetcher';
 import { mockFetcher } from './onec/mock';
 import { createODataClient, odataDate, type ODataClient } from './onec/odata';
 
@@ -23,7 +24,7 @@ export function makeOneCClient(): ODataClient {
   }
   const baseUrl = process.env.ONEC_ODATA_URL;
   if (!baseUrl) throw new Error('Не задан ONEC_ODATA_URL: адрес стандартного интерфейса OData вашего приложения 1С:Фреш.');
-  return createODataClient({ baseUrl, user: process.env.ONEC_USER || '', password: process.env.ONEC_PASSWORD || '' });
+  return createODataClient({ baseUrl, user: process.env.ONEC_USER || '', password: process.env.ONEC_PASSWORD || '', fetcher: freshConnectionFetcher, log: true });
 }
 
 async function upsertChunks<T extends object>(db: SupabaseClient, table: string, rows: T[], onConflict: string) {

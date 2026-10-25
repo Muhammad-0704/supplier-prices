@@ -14,6 +14,8 @@ export interface ODataClientOptions {
   timeoutMs?: number;
   /** Сколько ждать следующую часть ответа, прежде чем считать его зависшим */
   stallMs?: number;
+  /** Писать ход запросов в лог (по умолчанию да, если fetcher не подменён) */
+  log?: boolean;
 }
 
 export class ODataError extends Error {
@@ -50,6 +52,7 @@ export function createODataClient(opts: ODataClientOptions) {
   /** Ответ перестал приходить: признак «замерзания» большой передачи. Лечится порцией поменьше. */
   class StallError extends Error {}
   const STALL_MS = opts.stallMs ?? 8_000;
+  const LOG = opts.log ?? !opts.fetcher;
 
   async function readBody(res: Response, ctrl: AbortController): Promise<string> {
     if (!res.body) return res.text();
@@ -99,12 +102,12 @@ export function createODataClient(opts: ODataClientOptions) {
     for (let attempt = 1; ; attempt++) {
       try {
         const rows = await once(url);
-        if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} skip=${new URL(url).searchParams.get('$skip')} top=${new URL(url).searchParams.get('$top')} → ${rows.length} за ${((Date.now() - started) / 1000).toFixed(1)}с`);
+        if (LOG) console.log(`[odata] ${entityOf(url)} skip=${new URL(url).searchParams.get('$skip')} top=${new URL(url).searchParams.get('$top')} → ${rows.length} за ${((Date.now() - started) / 1000).toFixed(1)}с`);
         return rows;
       } catch (e) {
         if (e instanceof ODataError && e.status) throw e;
         if (e instanceof StallError) throw e;
-        if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} попытка ${attempt} оборвалась: ${(e as Error).message}`);
+        if (LOG) console.log(`[odata] ${entityOf(url)} попытка ${attempt} оборвалась: ${(e as Error).message}`);
         if (attempt >= 5) throw new ODataError(`1С:Фреш не отдал ${entityOf(url)} за 5 попыток (${(e as Error).message}).`);
         await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
@@ -133,7 +136,7 @@ export function createODataClient(opts: ODataClientOptions) {
       } catch (e) {
         if (e instanceof StallError && size > 1) {
           size = Math.max(1, Math.floor(size / 2));
-          if (!opts.fetcher) console.log(`[odata] ${entity}: ответ завис, уменьшаю порцию до ${size}`);
+          if (LOG) console.log(`[odata] ${entity}: ответ завис, уменьшаю порцию до ${size}`);
           continue;
         }
         if (e instanceof StallError) throw new ODataError(`1С:Фреш не смог отдать даже одну запись ${entity}: соединение зависает.`);
