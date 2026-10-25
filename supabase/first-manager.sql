@@ -1,9 +1,9 @@
 -- Назначить первого руководителя. Сначала создайте пользователя:
 -- Supabase → Authentication → Users → Add user (email и пароль, галочка Auto Confirm).
--- Потом выполните, подставив его email:
+-- Потом выполните, подставив его email и имя:
 
-update public.profiles
-set role = 'manager'
-where id = (select id from auth.users where email = 'you@example.com');
+insert into public.profiles (id, full_name, role)
+select id, 'Ваше имя', 'manager' from auth.users where email = 'you@example.com'
+on conflict (id) do update set role = 'manager';
 
 -- Остальных сотрудников руководитель добавляет уже в самом сервисе, на странице «Команда».

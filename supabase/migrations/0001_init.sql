@@ -49,17 +49,7 @@ create table public.profiles (
   created_at  timestamptz not null default now()
 );
 
-create or replace function public.handle_new_user() returns trigger
-language plpgsql security definer set search_path = public as $$
-begin
-  insert into public.profiles (id, full_name)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', split_part(new.email, '@', 1)))
-  on conflict (id) do nothing;
-  return new;
-end $$;
-
-create trigger on_auth_user_created after insert on auth.users
-  for each row execute function public.handle_new_user();
+-- Профиль создаёт только руководитель (страница «Команда»): самостоятельная регистрация в Supabase не даёт доступа к ценам.
 
 create or replace function public.is_manager() returns boolean
 language sql stable security definer set search_path = public as $$
@@ -159,3 +149,9 @@ create policy "own favorites" on public.user_favorites for all to authenticated
 -- ---------- Живые обновления ----------
 alter publication supabase_realtime add table public.purchases;
 alter publication supabase_realtime add table public.sync_runs;
+
+-- ---------- Функции прав не вызываются анонимно ----------
+revoke execute on function public.is_manager() from public, anon;
+revoke execute on function public.is_member() from public, anon;
+grant execute on function public.is_manager() to authenticated;
+grant execute on function public.is_member() to authenticated;
