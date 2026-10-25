@@ -42,6 +42,9 @@ button { font: inherit; }
 .nav a { text-decoration: none; padding: 6px 10px; border-radius: var(--radius-md); color: var(--ink-muted); font-size: 13px; font-weight: 500; }
 .nav a:hover { background: var(--surface-hover); color: var(--ink); }
 .nav a[aria-current="page"] { color: var(--ink); background: var(--surface-sunk); }
+.nav { align-items: center; }
+.theme-toggle { width: 30px; padding: 0; }
+.theme-toggle svg { width: 16px; height: 16px; }
 
 .notice { display: flex; gap: var(--space-2); align-items: baseline; padding: 10px 14px; border-radius: var(--radius-md); background: var(--signal-soft); color: var(--ink); font-size: 13px; }
 .notice--error { background: var(--bad-soft); color: var(--bad); }

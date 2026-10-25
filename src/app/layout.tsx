@@ -10,16 +10,17 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f4f4f1' },
-    { media: '(prefers-color-scheme: dark)', color: '#121416' },
-  ],
+  themeColor: '#f4f4f1',
 };
+
+/** Светлая тема по умолчанию; тёмная, если человек выбрал её переключателем. Ставится до отрисовки, без мигания. */
+const THEME_SCRIPT = `try{var t=localStorage.getItem('pb_theme');document.documentElement.dataset.theme=t==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="ru" data-theme="light" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
