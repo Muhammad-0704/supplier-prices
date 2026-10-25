@@ -77,6 +77,7 @@ export function Board({ data }: { data: BoardData }) {
       .channel('board')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'purchases' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'offer_lines' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'price_overrides' }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sync_runs' }, (p: { new?: { status?: string } }) => {
         if (p.new?.status === 'running') setSyncing(true);
         else { setSyncing(false); refresh(); }
@@ -225,6 +226,7 @@ export function Board({ data }: { data: BoardData }) {
           <span><i className="sw sw--best" />лучшая цена по товару</span>
           <span><i className="sw sw--cur" />у кого берём сейчас (последняя закупка)</span>
           <span><i className="sw sw--stale" />цена устарела, в сравнении не участвует</span>
+          <span>✎ цену обновили вручную</span>
           <span><b className="pb-trend--rise">▲</b>/<b className="pb-trend--drop">▼</b> изменение с прошлой закупки у этого поставщика</span>
         </div>
       )}
@@ -278,9 +280,9 @@ function Matrix(props: {
           return (
             <td key={s.id} className={flash.has(key) ? 'flash' : undefined}>
               {o ? (
-                <PriceCell price={o.price} trend={o.change} date={shortDate(o.lastDate)} best={o.supplierId === it.bestSupplierId} current={o.supplierId === it.currentSupplierId}
+                <PriceCell price={o.price} trend={o.change} date={o.manual?.kind === 'price' ? `✎ ${shortDate(o.lastDate)}` : shortDate(o.lastDate)} best={o.supplierId === it.bestSupplierId} current={o.supplierId === it.currentSupplierId}
                   stale={o.stale} highlight={s.id === supF} compact={compact} onOpen={() => onOpen(it.id)}
-                  title={`${s.name}: ${rub(o.price)} за ${it.unit}, закупка ${longDate(o.lastDate)}`} />
+                  title={o.manual?.kind === 'price' ? `${s.name}: ${rub(o.price)} за ${it.unit}, обновлено вручную ${longDate(o.lastDate)} (в 1С ${rub(o.manual.sourcePrice)})` : o.manual?.kind === 'stale' ? `${s.name}: ${rub(o.price)}, отмечена устаревшей` : `${s.name}: ${rub(o.price)} за ${it.unit}, закупка ${longDate(o.lastDate)}`} />
               ) : (
                 <PriceCell price={null} highlight={s.id === supF} compact={compact} />
               )}

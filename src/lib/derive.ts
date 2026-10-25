@@ -1,4 +1,26 @@
-import type { BoardItem, DerivedOffer, Offer } from './types';
+import type { BoardItem, DerivedOffer, ManualMark, Offer } from './types';
+
+export interface PriceOverride {
+  item_id: string;
+  supplier_id: string;
+  kind: 'price' | 'stale';
+  price: number | null;
+  note: string | null;
+  set_at: string;
+  set_by_name: string | null;
+}
+
+/**
+ * Ручные отметки поверх цен из 1С. Отметка действует, пока от поставщика не пришла накладная новее неё:
+ * тогда снова главная — цена из 1С.
+ */
+export function applyOverride(o: Offer, ov: PriceOverride | undefined): Offer {
+  if (!ov || Date.parse(o.lastDate) > Date.parse(ov.set_at)) return o;
+  const manual: ManualMark = { kind: ov.kind, at: ov.set_at, by: ov.set_by_name, sourcePrice: o.price, note: ov.note };
+  if (ov.kind === 'stale') return { ...o, manual };
+  if (!(Number(ov.price) > 0)) return o;
+  return { ...o, price: Number(ov.price), prevPrice: o.price, lastDate: ov.set_at, purchaseDate: o.lastDate, manual };
+}
 
 const DAY = 86_400_000;
 export const STALE_GAP_DAYS = 60;
@@ -32,11 +54,16 @@ export function deriveItem(input: DeriveInput, opts: { now: number; rareDays: nu
   });
 
   const agoAny = Math.min(...offers.map((o) => o.ago));
-  for (const o of offers) o.stale = o.ago - agoAny > STALE_GAP_DAYS;
+  for (const o of offers) o.stale = o.manual?.kind === 'stale' || o.ago - agoAny > STALE_GAP_DAYS;
 
-  const pool = offers.filter((o) => !o.stale);
+  // Если устарели все цены — сравниваем хоть какие-то, иначе товар пропадёт с доски
+  const fresh = offers.filter((o) => !o.stale);
+  const pool = fresh.length ? fresh : offers;
   const best = pool.reduce((a, b) => (b.price < a.price ? b : a));
-  const current = offers.reduce((a, b) => (Date.parse(b.lastDate) > Date.parse(a.lastDate) ? b : a));
+  // «Берём сейчас» — по последней закупке в 1С, ручное обновление цены на это не влияет
+  const bought = (o: Offer) => Date.parse(o.purchaseDate ?? o.lastDate);
+  const current = offers.reduce((a, b) => (bought(b) > bought(a) ? b : a));
+  const lastBuy = Math.max(...offers.map(bought));
 
   const prices = pool.map((o) => o.price);
   const min = Math.min(...prices);
@@ -51,8 +78,8 @@ export function deriveItem(input: DeriveInput, opts: { now: number; rareDays: nu
     bestSupplierId: best.supplierId,
     bestPrice: best.price,
     currentSupplierId: current.supplierId,
-    agoAny,
-    rare: agoAny > opts.rareDays,
+    agoAny: Math.max(0, Math.floor((opts.now - lastBuy) / DAY)),
+    rare: Math.floor((opts.now - lastBuy) / DAY) > opts.rareDays,
     spread: min > 0 ? (max - min) / min : 0,
     favorite: !!input.favorite,
     hidden: !!input.hidden,

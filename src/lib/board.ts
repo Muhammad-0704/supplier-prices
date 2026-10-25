@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cheaperAlternative, makeIndex, resolveMeasure, type MeasureOverride } from './compare';
-import { deriveItem } from './derive';
+import { applyOverride, deriveItem, type PriceOverride } from './derive';
 import { onecMode } from './onec/config';
 import type { BoardData, BoardItem, Offer, Role, SyncInfo } from './types';
 
@@ -29,7 +29,7 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
 
   type SupUseR = { supplier_id: string; docs_90d: number; docs_total: number; last_date: string };
   type PropR = { item_id: string; company_name: string; price: number; created_at: string; status: 'new' | 'accepted'; min_qty: string | null };
-  const [suppliers, items, offers, usage, flags, favs, lastRun, supUse, props, overrides] = await Promise.all([
+  const [suppliers, items, offers, usage, flags, favs, lastRun, supUse, props, overrides, priceOvs] = await Promise.all([
     all<{ id: string; name: string }>((f, t) => db.from('suppliers').select('id, name').order('name').range(f, t)),
     all<ItemR>((f, t) => db.from('items').select('id, name, unit, category').is('merged_into', null).range(f, t)),
     all<OfferR>((f, t) => db.from('offer_prices').select('item_id, supplier_id, last_price, prev_price, last_date').range(f, t)),
@@ -40,13 +40,18 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
     all<SupUseR>((f, t) => db.from('supplier_usage').select('supplier_id, docs_90d, docs_total, last_date').range(f, t)),
     all<PropR>((f, t) => db.from('latest_offers').select('item_id, company_name, price, created_at, status, min_qty').range(f, t)),
     all<MeasureOverride & { item_id: string }>((f, t) => db.from('item_measures').select('item_id, base, per_unit, disabled').range(f, t)),
+    all<PriceOverride>((f, t) => db.from('price_overrides').select('item_id, supplier_id, kind, price, note, set_at, set_by_name').range(f, t)),
   ]);
+  const priceOv = new Map(priceOvs.map((o) => [`${o.item_id}:${o.supplier_id}`, o]));
   const override = new Map(overrides.map((o) => [o.item_id, o]));
 
   const byItem = new Map<string, Offer[]>();
   for (const o of offers) {
     const list = byItem.get(o.item_id) ?? [];
-    list.push({ supplierId: o.supplier_id, price: Number(o.last_price), prevPrice: o.prev_price == null ? null : Number(o.prev_price), lastDate: o.last_date });
+    list.push(applyOverride(
+      { supplierId: o.supplier_id, price: Number(o.last_price), prevPrice: o.prev_price == null ? null : Number(o.prev_price), lastDate: o.last_date },
+      priceOv.get(`${o.item_id}:${o.supplier_id}`),
+    ));
     byItem.set(o.item_id, list);
   }
   const qty = new Map(usage.map((u) => [u.item_id, Number(u.monthly_qty)]));

@@ -1,8 +1,8 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { plural, relDays, rub, rubFine, longDate } from '@/lib/format';
 import { getBrowserClient } from '@/lib/supabase/client';
-import type { BoardItem, HistoryPoint, Supplier } from '@/lib/types';
+import type { BoardItem, DerivedOffer, HistoryPoint, Supplier } from '@/lib/types';
 import { Badge, Button, Trend } from './ui';
 import { PriceChart } from './PriceChart';
 import { MeasureSection } from './MeasureSection';
@@ -40,6 +40,40 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
   }, [onClose]);
 
   const name = (id: string) => suppliers.get(id)?.name ?? '—';
+  const [editing, setEditing] = useState<string | null>(null);
+  const [newPrice, setNewPrice] = useState('');
+  const [note, setNote] = useState('');
+  useEffect(() => { setEditing(null); }, [itemId]);
+
+  /** Ручная отметка цены: новая цена со слов поставщика или «устарела». null — вернуть цену из 1С. */
+  async function mark(o: DerivedOffer, kind: 'price' | 'stale' | null) {
+    if (!item) return;
+    let price: number | null = null;
+    if (kind === 'price') {
+      price = Number(newPrice.replace(/\s/g, '').replace(',', '.'));
+      if (!(price > 0) || price > 1e9) { onChanged('Введите цену числом, например 45 или 45,50'); return; }
+    }
+    setBusy(true);
+    const db = getBrowserClient();
+    const { data: { user } } = await db.auth.getUser();
+    if (!user) { setBusy(false); return; }
+    let error: { message: string } | null = null;
+    if (kind === null) {
+      ({ error } = await db.from('price_overrides').delete().eq('item_id', item.id).eq('supplier_id', o.supplierId));
+    } else {
+      const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).maybeSingle();
+      ({ error } = await db.from('price_overrides').upsert({
+        item_id: item.id, supplier_id: o.supplierId, kind, price, note: note.trim().slice(0, 300) || null,
+        set_by: user.id, set_by_name: me?.full_name || user.email || null, set_at: new Date().toISOString(),
+      }));
+    }
+    setBusy(false);
+    setEditing(null); setNewPrice(''); setNote('');
+    onChanged(error ? `Не получилось: ${error.message}`
+      : kind === 'price' ? `Цена ${name(o.supplierId)} обновлена до ${rub(price!)}. С новой накладной из 1С снова будет цена из 1С`
+      : kind === 'stale' ? `Цена ${name(o.supplierId)} отмечена устаревшей и не участвует в сравнении`
+      : 'Вернули цену из 1С');
+  }
 
   async function toggleFavorite() {
     if (!item) return;
@@ -105,22 +139,57 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
                 <h3>Предложения</h3>
                 <div style={{ overflowX: 'auto' }}>
                   <table className="ot">
-                    <thead><tr><th>Поставщик</th><th className="r">Цена</th>{perCol && <th className="r">За {item.measure!.base}</th>}<th className="r">С прошлой</th><th className="r">Закупка</th></tr></thead>
+                    <thead><tr><th>Поставщик</th><th className="r">Цена</th>{perCol && <th className="r">За {item.measure!.base}</th>}<th className="r">С прошлой</th><th className="r">Закупка</th><th /></tr></thead>
                     <tbody>
                       {item.offers.map((o, i) => (
-                        <tr key={o.supplierId}>
-                          <td>
-                            <i className="sw-line" style={{ background: `var(--series-${Math.min(i + 1, 5)})` }} />
-                            {name(o.supplierId)}
-                            {o.supplierId === item.bestSupplierId && <Badge tone="best" />}
-                            {o.supplierId === item.currentSupplierId && <Badge tone="current" />}
-                            {o.stale && <Badge tone="stale" />}
-                          </td>
-                          <td className="r pr">{rub(o.price)}</td>
-                          {perCol && <td className="r sm">{rubFine(o.price / item.measure!.perUnit)}</td>}
-                          <td className="r"><Trend value={o.change} zeroLabel="без изм." /></td>
-                          <td className="r sm" title={longDate(o.lastDate)}>{relDays(o.ago)}</td>
-                        </tr>
+                        <Fragment key={o.supplierId}>
+                          <tr>
+                            <td>
+                              <i className="sw-line" style={{ background: `var(--series-${Math.min(i + 1, 5)})` }} />
+                              {name(o.supplierId)}
+                              {o.supplierId === item.bestSupplierId && <Badge tone="best" />}
+                              {o.supplierId === item.currentSupplierId && <Badge tone="current" />}
+                              {o.stale && <Badge tone="stale" />}
+                              {o.manual?.kind === 'price' && <Badge tone="role">вручную</Badge>}
+                              {o.manual && (
+                                <div className="muted" style={{ fontSize: 12 }}>
+                                  {o.manual.kind === 'price' ? `Обновил${o.manual.by ? ` ${o.manual.by}` : 'и'} ${longDate(o.manual.at)}, в 1С ${rub(o.manual.sourcePrice)}` : `Отметил${o.manual.by ? ` ${o.manual.by}` : 'и'} ${longDate(o.manual.at)}`}
+                                  {o.manual.note ? ` · ${o.manual.note}` : ''}
+                                </div>
+                              )}
+                            </td>
+                            <td className="r pr">{rub(o.price)}</td>
+                            {perCol && <td className="r sm">{rubFine(o.price / item.measure!.perUnit)}</td>}
+                            <td className="r"><Trend value={o.change} zeroLabel="без изм." /></td>
+                            <td className="r sm" title={longDate(o.purchaseDate ?? o.lastDate)}>{relDays(o.manual?.kind === 'price' ? Math.max(0, Math.floor((Date.now() - Date.parse(o.purchaseDate!)) / 86_400_000)) : o.ago)}</td>
+                            <td className="r">
+                              <span className="price-acts">
+                                {o.manual ? (
+                                  <button type="button" className="link" disabled={busy} onClick={() => mark(o, null)}>{o.manual.kind === 'price' ? 'Цена из 1С' : 'Снять'}</button>
+                                ) : (
+                                  <>
+                                    <button type="button" className="link" disabled={busy} onClick={() => { setEditing(o.supplierId); setNewPrice(''); setNote(''); }}>Новая цена</button>
+                                    {!o.stale && <button type="button" className="link link--muted" disabled={busy} onClick={() => mark(o, 'stale')}>Устарела</button>}
+                                  </>
+                                )}
+                              </span>
+                            </td>
+                          </tr>
+                          {editing === o.supplierId && (
+                            <tr className="price-edit">
+                              <td colSpan={perCol ? 6 : 5}>
+                                <form className="measure-row" onSubmit={(e) => { e.preventDefault(); mark(o, 'price'); }}>
+                                  <span>Сейчас у {name(o.supplierId)}:</span>
+                                  <input className="input num" inputMode="decimal" autoFocus placeholder={String(o.price)} value={newPrice} onChange={(e) => setNewPrice(e.target.value)} aria-label="Новая цена" />
+                                  <span>₽ за {item.unit}</span>
+                                  <input className="input" style={{ width: 200, textAlign: 'left' }} placeholder="откуда цена (по желанию)" value={note} onChange={(e) => setNote(e.target.value)} aria-label="Комментарий" />
+                                  <button className="pb-btn pb-btn--sm pb-btn--primary" type="submit" disabled={busy}>Сохранить</button>
+                                  <button className="pb-btn pb-btn--sm pb-btn--quiet" type="button" onClick={() => setEditing(null)}>Отмена</button>
+                                </form>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
                       ))}
                     </tbody>
                   </table>

@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { deriveItem } from './derive';
+import { applyOverride, deriveItem, type PriceOverride } from './derive';
 
 export type OfferScope = 'supplier_items' | 'categories' | 'items';
 
@@ -86,11 +86,17 @@ export async function ourBestPrices(db: SupabaseClient, itemIds: string[]): Prom
     const { data } = await db.from('offer_prices').select('item_id, supplier_id, last_price, prev_price, last_date').in('item_id', itemIds.slice(i, i + 300));
     rows.push(...(data ?? []));
   }
+  const ovs: PriceOverride[] = [];
+  for (let i = 0; i < itemIds.length; i += 300) {
+    const { data } = await db.from('price_overrides').select('item_id, supplier_id, kind, price, note, set_at, set_by_name').in('item_id', itemIds.slice(i, i + 300));
+    ovs.push(...((data ?? []) as PriceOverride[]));
+  }
+  const ov = new Map(ovs.map((o) => [`${o.item_id}:${o.supplier_id}`, o]));
   const byItem = new Map<string, typeof rows>();
   rows.forEach((r) => byItem.set(r.item_id, [...(byItem.get(r.item_id) ?? []), r]));
   const now = Date.now();
   byItem.forEach((list, id) => {
-    const d = deriveItem({ id, name: '', unit: '', category: '', offers: list.map((r) => ({ supplierId: r.supplier_id, price: Number(r.last_price), prevPrice: r.prev_price == null ? null : Number(r.prev_price), lastDate: r.last_date })) }, { now, rareDays: 9999, withMoney: false });
+    const d = deriveItem({ id, name: '', unit: '', category: '', offers: list.map((r) => applyOverride({ supplierId: r.supplier_id, price: Number(r.last_price), prevPrice: r.prev_price == null ? null : Number(r.prev_price), lastDate: r.last_date }, ov.get(`${r.item_id}:${r.supplier_id}`))) }, { now, rareDays: 9999, withMoney: false });
     if (d) best.set(id, d.offers.find((o) => o.supplierId === d.bestSupplierId)!.price);
   });
   return best;

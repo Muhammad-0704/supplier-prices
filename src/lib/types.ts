@@ -15,8 +15,23 @@ export interface Offer {
   supplierId: string;
   price: number;
   prevPrice: number | null;
-  /** ISO-дата последней закупки */
+  /** ISO-дата последней закупки (или ручного обновления цены) */
   lastDate: string;
+  /** Дата последней закупки по 1С, если цену обновили вручную */
+  purchaseDate?: string;
+  /** Ручная отметка: цена устарела или обновлена со слов поставщика */
+  manual?: ManualMark;
+}
+
+export interface ManualMark {
+  kind: 'price' | 'stale';
+  /** Когда отметили */
+  at: string;
+  /** Кто отметил */
+  by: string | null;
+  /** Цена из 1С на момент отметки */
+  sourcePrice: number;
+  note: string | null;
 }
 
 export interface DerivedOffer extends Offer {
