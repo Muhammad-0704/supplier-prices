@@ -33,7 +33,10 @@ export async function GET(request: NextRequest) {
   const timer = setTimeout(() => ctrl.abort(), Number(q.get('timeout') || 60) * 1000);
   const out: Record<string, unknown> = { entity, params };
   try {
-    const res = await fetch(url, { headers: { Authorization: basicAuth(process.env.ONEC_USER || '', process.env.ONEC_PASSWORD || ''), Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
+    const headers: Record<string, string> = { Authorization: basicAuth(process.env.ONEC_USER || '', process.env.ONEC_PASSWORD || ''), Accept: 'application/json' };
+    if (q.get('enc')) headers['Accept-Encoding'] = q.get('enc')!;
+    const res = await fetch(url, { headers, signal: ctrl.signal, cache: 'no-store' });
+    out.respHeaders = Object.fromEntries([...res.headers.entries()].filter(([k]) => /encoding|length|type|server|connection/i.test(k)));
     out.status = res.status;
     out.headersMs = Date.now() - started;
     const reader = res.body?.getReader();
@@ -44,6 +47,7 @@ export async function GET(request: NextRequest) {
         const { done, value } = await reader.read();
         if (done) break;
         bytes += value.length;
+        out.bytesSoFar = bytes;
         if (bytes < 400_000) chunks.push(value);
       }
     }
