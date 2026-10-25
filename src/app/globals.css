@@ -18,16 +18,19 @@ button { font: inherit; }
 .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .muted { color: var(--ink-muted); }
 
+/* На всю ширину экрана: поля 16px на телефоне, 32px на планшете и ноутбуке, 48px на большом мониторе */
 .page {
-  max-width: 1520px;
-  margin: 0 auto;
+  --gutter: var(--space-4);
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  padding-block: 20px 48px;
-  padding-left: max(var(--space-4), env(safe-area-inset-left, 0px));
-  padding-right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  padding-block: var(--gutter);
+  padding-left: max(var(--gutter), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--gutter), env(safe-area-inset-right, 0px));
 }
+@media (min-width: 768px) { .page { --gutter: var(--space-8); } }
+@media (min-width: 1440px) { .page { --gutter: 48px; } }
 
 /* Шапка */
 .top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
@@ -59,7 +62,7 @@ button { font: inherit; }
 .chips .pb-chip { flex: none; }
 
 /* Матрица */
-.board { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: auto; max-height: min(74vh, 980px); }
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: auto; max-height: 80vh; }
 .mx { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
 .mx th, .mx td { border-bottom: 1px solid var(--line-soft); border-right: 1px solid var(--line-soft); padding: 0; }
 .mx thead th { position: sticky; top: 0; z-index: 3; background: var(--surface-sunk); border-bottom: 1px solid var(--line); padding: 9px var(--space-2); text-align: left; vertical-align: bottom; font-weight: 600; font-size: 12.5px; line-height: 16px; width: var(--col-price); min-width: var(--col-price); max-width: var(--col-price); }
