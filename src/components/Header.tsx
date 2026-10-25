@@ -4,7 +4,7 @@ import type { Role } from '@/lib/types';
 import { ThemeToggle } from './ThemeToggle';
 import { Badge } from './ui';
 
-export async function Header({ role, userName, current, children }: { role: Role; userName: string; current: 'board' | 'team' | 'offers'; children?: React.ReactNode }) {
+export async function Header({ role, userName, current, children }: { role: Role; userName: string; current: 'board' | 'team' | 'offers' | 'order'; children?: React.ReactNode }) {
   // Счётчик новых предложений от поставщиков — только руководителю
   let newOffers = 0;
   if (role === 'manager') {
@@ -25,6 +25,7 @@ export async function Header({ role, userName, current, children }: { role: Role
       <div className="top__right">
         <nav className="nav" aria-label="Разделы">
           <Link href="/" aria-current={current === 'board' ? 'page' : undefined}>Доска</Link>
+          <Link href="/order" aria-current={current === 'order' ? 'page' : undefined}>Заказ</Link>
           {role === 'manager' && (
             <Link href="/offers" aria-current={current === 'offers' ? 'page' : undefined}>
               Предложения{newOffers > 0 && <span className="cnt-new" aria-label={`новых: ${newOffers}`}>{newOffers}</span>}

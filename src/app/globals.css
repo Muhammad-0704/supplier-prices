@@ -199,3 +199,34 @@ button { font: inherit; }
 .radio-row { display: flex; flex-wrap: wrap; gap: 6px 18px; }
 .radio-row label { display: inline-flex; gap: 7px; align-items: center; font-size: 14px; cursor: pointer; }
 @media (max-width: 760px) { .link-row { grid-template-columns: 1fr; } }
+
+/* Заказ */
+.order-head { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); align-items: flex-end; justify-content: space-between; }
+.order-title { margin: 0; font-size: 18px; line-height: 24px; }
+.order-sub { margin: 2px 0 0; font-size: 13px; max-width: 640px; }
+.order-kpi { display: flex; gap: var(--space-6); }
+.order-kpi > div { display: flex; flex-direction: column; }
+.order-kpi .muted { font-size: 12px; }
+.order-kpi__v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; line-height: 28px; font-weight: 600; }
+.order-kpi__v--bad { color: var(--bad); }
+.ord-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 120px auto; gap: var(--space-3); align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); }
+.ord-row:last-child { border-bottom: 0; }
+.ord-row__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ord-row__name .muted { font-size: 12.5px; line-height: 17px; }
+.ord-row__name .pb-badge { vertical-align: 1px; margin-right: 2px; }
+.ord-row__qty { display: flex; flex-direction: column; text-align: right; }
+.ord-row__qty .muted { font-size: 12px; }
+.ord-row__big { font-size: 15px; font-weight: 600; white-space: nowrap; }
+.ord-row__label { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; }
+.ord-row__count { display: flex; flex-direction: column; gap: 2px; }
+.ord-row__count .input { height: 34px; text-align: right; }
+.ord-row__acts { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.order-save { position: sticky; bottom: 0; z-index: 10; display: flex; gap: var(--space-2); padding: var(--space-3) 0 calc(var(--space-3) + env(safe-area-inset-bottom, 0px)); background: linear-gradient(to top, var(--paper) 70%, transparent); }
+.order-save .pb-btn--primary { flex: 1 1 auto; max-width: 420px; }
+@media (max-width: 720px) {
+  .ord-row { grid-template-columns: 1fr 1fr; }
+  .ord-row__name { grid-column: 1 / -1; }
+  .ord-row__qty { text-align: left; }
+  .ord-row__acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .nav { flex-wrap: wrap; }
+}
