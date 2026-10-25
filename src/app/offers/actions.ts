@@ -87,3 +87,24 @@ export async function connectTelegramAction(): Promise<TgState> {
     return { error: (e as Error).message };
   }
 }
+
+export type ThresholdState = { ok?: string; error?: string } | null;
+/** Пороги сигналов о ценах, в процентах */
+export async function saveThresholds(_prev: ThresholdState, form: FormData): Promise<ThresholdState> {
+  try {
+    const { db } = await requireManager();
+    const up = Number(String(form.get('up') || '').replace(',', '.'));
+    const down = Number(String(form.get('down') || '').replace(',', '.'));
+    if (!(up >= 1 && up <= 90) || !(down >= 1 && down <= 90)) return { error: 'Укажите проценты от 1 до 90.' };
+    const now = new Date().toISOString();
+    const { error } = await db.from('app_settings').upsert([
+      { key: 'alert_up_pct', value: String(up), updated_at: now },
+      { key: 'alert_down_pct', value: String(down), updated_at: now },
+    ]);
+    if (error) return { error: error.message };
+    revalidatePath('/offers');
+    return { ok: `Сохранено: подорожание от ${up}%, подешевление от ${down}%.` };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

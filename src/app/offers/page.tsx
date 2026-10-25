@@ -9,6 +9,8 @@ import { getChatId, telegramConfigured } from '@/lib/telegram';
 import { CopyButton } from './CopyButton';
 import { LinkForm } from './LinkForm';
 import { TelegramConnect } from './TelegramConnect';
+import { AlertSettings } from './AlertSettings';
+import { loadThresholds } from '@/lib/alert-runner';
 import { setLineStatus, setLinkActive } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -127,6 +129,7 @@ async function LinksTab() {
     db.from('offer_submissions').select('link_id, created_at').order('created_at', { ascending: false }).limit(2000),
     getChatId(db),
   ]);
+  const th = await loadThresholds(db);
   const { data: supNames } = await db.from('suppliers').select('id, name');
   const nameById = new Map((supNames ?? []).map((s) => [s.id, s.name]));
   // Поставщики из 1С: сначала с накладными (по популярности), потом остальные по алфавиту
@@ -175,6 +178,7 @@ async function LinksTab() {
       </section>
 
       <TelegramConnect configured={telegramConfigured()} connected={!!chatId} />
+      <AlertSettings up={Math.round(th.up * 100)} down={Math.round(th.down * 100)} connected={telegramConfigured() && !!chatId} />
     </>
   );
 }

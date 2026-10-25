@@ -5,6 +5,7 @@ import { mapItems, mapReceipts, mapSuppliers, postedReceiptRefs, type ReceiptLin
 import { freshConnectionFetcher } from './onec/fetcher';
 import { mockFetcher } from './onec/mock';
 import { createODataClient, odataDate, type ODataClient, type ODataRow } from './onec/odata';
+import { runAlerts } from './alert-runner';
 
 export interface SyncResult {
   ok: boolean;
@@ -112,6 +113,14 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
     };
     const rows = lines.map(toRow).filter((r): r is NonNullable<typeof r> => r !== null);
 
+    // Какие накладные уже были в базе: по новым (впервые пришедшим) проверяем цены для сигналов
+    const known = new Set<string>();
+    for (let i = 0; i < docRefs.length; i += 200) {
+      const { data } = await db.from('purchases').select('onec_doc_ref').in('onec_doc_ref', docRefs.slice(i, i + 200));
+      (data ?? []).forEach((r) => known.add(r.onec_doc_ref));
+    }
+    const { count: before } = await db.from('purchases').select('id', { count: 'exact', head: true });
+
     for (let i = 0; i < docRefs.length; i += 200) {
       const { error } = await db.from('purchases').delete().in('onec_doc_ref', docRefs.slice(i, i + 200));
       if (error) throw new Error(`Очистка старых строк: ${error.message}`);
@@ -120,6 +129,10 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
       const { error } = await db.from('purchases').insert(rows.slice(i, i + 500));
       if (error) throw new Error(`Запись закупок: ${error.message}`);
     }
+
+    // Сигналы о ценах: только для накладных, которых раньше не было, и не при самой первой загрузке
+    const alerts = before ? await runAlerts(db, rows.filter((r) => !known.has(r.onec_doc_ref))) : 0;
+    if (alerts) log(`сигналов о ценах: ${alerts}`);
 
     const skipped = lines.length - rows.length;
     const message = `Накладных: ${docRefs.length}, строк: ${rows.length}` + (skipped ? `, пропущено строк без товара или поставщика: ${skipped}` : '');
