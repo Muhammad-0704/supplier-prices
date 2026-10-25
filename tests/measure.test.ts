@@ -68,3 +68,22 @@ describe('похожие названия', () => {
     expect(bestMatches('Мука пшеничная', items)).toEqual([]);
   });
 });
+
+import { cheaperAlternative, makeIndex } from '../src/lib/compare';
+
+describe('сравнение карточек за кг', () => {
+  const mk = (id: string, name: string, unit: string, bestPrice: number) => ({ id, name, bestPrice, bestSupplierId: 'S', measure: parseMeasure(name, unit) });
+  const big = mk('big', 'Шоколад белый Callebaut №W2 25,9%, каллеты, 10кг, Бельгия', 'шт', 9000);
+  const small = mk('small', 'Шоколад белый Callebaut №W2 25,9%, каллеты, 2,5кг, Бельгия', 'шт', 2600);
+
+  it('большая фасовка дешевле за кг — пометка у маленькой', () => {
+    const index = makeIndex([big, small]);
+    expect(cheaperAlternative(small, index)).toMatchObject({ itemId: 'big', perBase: 900 });
+    expect(cheaperAlternative(big, index)).toBeNull();
+  });
+
+  it('товар вне индекса (редкий, скрытый) не ломает расчёт', () => {
+    const index = makeIndex([big]);
+    expect(cheaperAlternative(small, index)).toMatchObject({ itemId: 'big' });
+  });
+});

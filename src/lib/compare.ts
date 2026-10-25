@@ -45,7 +45,8 @@ export function makeIndex<T extends Comparable>(items: T[]) {
       const m = item.measure;
       if (!m) return [];
       const own = item.bestPrice / m.perUnit;
-      const t = tk.get(item.id)!;
+      // Товар может не входить в индекс (редкий или скрытый) — тогда считаем его слова на месте
+      const t = tk.get(item.id) ?? tokens(item.name);
       const out: Alternative<T>[] = [];
       for (const other of items) {
         if (other.id === item.id || !other.measure || other.measure.base !== m.base) continue;
