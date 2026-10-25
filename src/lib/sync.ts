@@ -50,7 +50,7 @@ async function syncSince(db: SupabaseClient): Promise<Date> {
   const full = new Date(Date.now() - days * 86_400_000);
   // Строки, загруженные до появления «вида операции», перечитываем целиком за весь период
   if (onecMode() === 'odata') {
-    const { count } = await db.from('purchases').select('id', { count: 'exact', head: true }).is('operation', null);
+    const { count } = await db.from('purchases').select('id', { count: 'exact', head: true }).is('operation', null).gte('doc_date', full.toISOString());
     if (count) return full;
   }
   const { data } = await db.from('purchases').select('doc_date').order('doc_date', { ascending: false }).limit(1);
