@@ -1,6 +1,6 @@
 'use client';
 import { useFormState, useFormStatus } from 'react-dom';
-import { addMember } from './actions';
+import { addMember } from './team-actions';
 
 function Submit() {
   const { pending } = useFormStatus();

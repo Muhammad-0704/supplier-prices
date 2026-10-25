@@ -29,7 +29,7 @@ export async function addMember(_prev: ActionState, form: FormData): Promise<Act
     const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: fullName } });
     if (error) return { error: error.message.includes('already') ? 'Сотрудник с такой почтой уже есть.' : `Не удалось создать: ${error.message}` };
     await admin.from('profiles').upsert({ id: data.user.id, full_name: fullName, role });
-    revalidatePath('/team');
+    revalidatePath('/settings');
     return { ok: `${fullName} добавлен. Передайте ему почту и пароль, войти можно сразу.` };
   } catch (e) {
     return { error: (e as Error).message };
@@ -43,7 +43,7 @@ export async function setRole(form: FormData) {
   if (id === me.id && role !== 'manager') return; // нельзя снять роль с самого себя и остаться без руководителя
   const db = createClient();
   await db.from('profiles').update({ role }).eq('id', id);
-  revalidatePath('/team');
+  revalidatePath('/settings');
 }
 
 export async function removeMember(form: FormData) {
@@ -51,5 +51,5 @@ export async function removeMember(form: FormData) {
   const id = String(form.get('id'));
   if (id === me.id) return;
   await createAdminClient().auth.admin.deleteUser(id);
-  revalidatePath('/team');
+  revalidatePath('/settings');
 }

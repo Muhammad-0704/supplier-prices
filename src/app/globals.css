@@ -293,3 +293,9 @@ button { font: inherit; }
 .offer-live--lower { color: var(--good); }
 .offer-live--same { color: var(--ink-muted); }
 .offer-live--higher { color: var(--bad); }
+.profile-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.confirm { display: inline-block; }
+.confirm summary { list-style: none; }
+.confirm summary::-webkit-details-marker { display: none; }
+.confirm form { margin-top: 6px; }
+.settings .tabs { margin-bottom: 0; }

@@ -16,7 +16,7 @@ export function buildDigest(rows: OrderRow[], suppliers: Record<string, string>,
   const by = new Map<string, OrderRow[]>();
   for (const r of due) by.set(r.bestSupplierId, [...(by.get(r.bestSupplierId) ?? []), r]);
   const nDue = due.filter((r) => r.s.status === 'due').length;
-  const out = [`<b>Заказ на ${longDate(new Date(now).toISOString())}</b>`, `Пора: ${nDue}, скоро: ${due.length - nDue}. Дешевле всего сейчас:`];
+  const out = [`<b>Заявка на ${longDate(new Date(now).toISOString())}</b>`, `Пора: ${nDue}, скоро: ${due.length - nDue}. Дешевле всего сейчас:`];
   let lines = 0;
   for (const [sup, list] of [...by.entries()].sort((a, b) => b[1].length - a[1].length)) {
     if (lines >= MAX_LINES) break;

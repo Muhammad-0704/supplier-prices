@@ -22,12 +22,12 @@ export function OrderDigestCard({ connected }: { connected: boolean }) {
 
   return (
     <section className="card-box">
-      <h2>Список заказа по утрам</h2>
+      <h2>Заявка по утрам</h2>
       <p className="muted" style={{ margin: 0 }}>
         С понедельника по субботу в 8:20 бот присылает, что пора заказать и у кого дешевле. Если заказывать нечего, сообщения не будет.
       </p>
       <div className="acts">
-        <button type="button" className="pb-btn pb-btn--sm" onClick={sendNow} disabled={busy || !connected}>{busy ? 'Отправляем…' : 'Отправить список сейчас'}</button>
+        <button type="button" className="pb-btn pb-btn--sm" onClick={sendNow} disabled={busy || !connected}>{busy ? 'Отправляем…' : 'Отправить заявку сейчас'}</button>
         {!connected && <span className="muted" style={{ fontSize: 12 }}>Сначала подключите чат Telegram</span>}
       </div>
       {msg.ok && <p className="pb-trend--drop" style={{ margin: 0 }}>{msg.ok}</p>}
