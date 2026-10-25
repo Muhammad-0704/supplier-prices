@@ -6,6 +6,7 @@ import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardData, BoardItem, Supplier } from '@/lib/types';
 import { Button, ItemCard, PriceCell, RefreshIcon, SearchField, Segmented, StatStrip, SyncStatus } from './ui';
 import { ItemPanel } from './ItemPanel';
+import { Picker } from './Picker';
 
 type Asm = 'active' | 'all' | 'fav' | 'hidden';
 type Sort = 'cat' | 'save' | 'spread' | 'recent' | 'az';
@@ -33,6 +34,12 @@ export function Board({ data }: { data: BoardData }) {
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ru'));
   }, [data.items]);
 
+  // Поставщики по популярности, с числом товаров на доске
+  const supplierOptions = useMemo(() => {
+    const n = new Map<string, number>();
+    data.items.forEach((i) => i.offers.forEach((o) => n.set(o.supplierId, (n.get(o.supplierId) ?? 0) + 1)));
+    return data.suppliers.map((s) => ({ value: s.id, label: s.name, count: n.get(s.id) ?? 0 }));
+  }, [data.items, data.suppliers]);
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('all');
   const [supF, setSupF] = useState('all');
@@ -173,14 +180,10 @@ export function Board({ data }: { data: BoardData }) {
 
       <div className="bar">
         <SearchField value={q} onValueChange={setQ} placeholder="Найти товар: сливки, стакан 350…" />
-        <select className={`select${cat !== 'all' ? ' select--on' : ''}`} aria-label="Категория" value={cat} onChange={(e) => setCat(e.target.value)}>
-          <option value="all">Все категории</option>
-          {categories.map(([c, n]) => <option key={c} value={c}>{c} · {n}</option>)}
-        </select>
-        <select className={`select${supF !== 'all' ? ' select--on' : ''}`} aria-label="Поставщик" value={supF} onChange={(e) => setSupF(e.target.value)}>
-          <option value="all">Все поставщики</option>
-          {data.suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+        <Picker label="Категория" allLabel="Все категории" searchPlaceholder="Найти категорию" value={cat} onChange={setCat}
+          options={categories.map(([c, n]) => ({ value: c, label: c, count: n }))} />
+        <Picker label="Поставщик" allLabel="Все поставщики" searchPlaceholder="Найти поставщика" value={supF} onChange={setSupF}
+          options={supplierOptions} />
         <select className="select" aria-label="Сортировка" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
           <option value="cat">По категориям</option>
           {manager && <option value="save">Сначала переплаты</option>}
