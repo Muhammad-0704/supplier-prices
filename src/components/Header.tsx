@@ -4,7 +4,7 @@ import type { Role } from '@/lib/types';
 import { ThemeToggle } from './ThemeToggle';
 import { Badge } from './ui';
 
-export async function Header({ role, userName, current, children }: { role: Role; userName: string; current: 'board' | 'team' | 'offers' | 'order'; children?: React.ReactNode }) {
+export async function Header({ role, userName, current, children }: { role: Role; userName: string; current: 'board' | 'team' | 'offers' | 'order' | 'settings'; children?: React.ReactNode }) {
   // Счётчик новых предложений от поставщиков — только руководителю
   let newOffers = 0;
   if (role === 'manager') {
@@ -32,6 +32,7 @@ export async function Header({ role, userName, current, children }: { role: Role
             </Link>
           )}
           {role === 'manager' && <Link href="/team" aria-current={current === 'team' ? 'page' : undefined}>Команда</Link>}
+          {role === 'manager' && <Link href="/settings" aria-current={current === 'settings' ? 'page' : undefined}>Настройки</Link>}
           <Link href="/account">Пароль</Link>
           <ThemeToggle />
           <form action="/auth/signout" method="post"><button className="pb-btn pb-btn--quiet pb-btn--sm" type="submit">Выйти</button></form>

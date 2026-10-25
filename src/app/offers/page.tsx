@@ -5,12 +5,9 @@ import { Badge } from '@/components/ui';
 import { longDate, num, rub, time } from '@/lib/format';
 import { linkState, ourBestPrices, type OfferLink } from '@/lib/offers';
 import { createClient } from '@/lib/supabase/server';
-import { getChatId, telegramConfigured } from '@/lib/telegram';
 import { CopyButton } from './CopyButton';
 import { LinkForm } from './LinkForm';
-import { TelegramConnect } from './TelegramConnect';
-import { AlertSettings } from './AlertSettings';
-import { loadThresholds } from '@/lib/alert-runner';
+import { NewLinkToggle } from './NewLinkToggle';
 import { setLineStatus, setLinkActive } from './actions';
 import { PriceImport } from './PriceImport';
 import { loadBoard } from '@/lib/board';
@@ -38,8 +35,8 @@ export default async function OffersPage({ searchParams }: { searchParams: { tab
       <Header role="manager" userName={me.full_name || ''} current="offers" />
       <nav className="tabs" aria-label="Разделы предложений">
         <Link href="/offers" aria-current={tab === 'offers' ? 'page' : undefined}>Предложения</Link>
-        <Link href="/offers?tab=import" aria-current={tab === 'import' ? 'page' : undefined}>Прайс из файла</Link>
-        <Link href="/offers?tab=links" aria-current={tab === 'links' ? 'page' : undefined}>Ссылки для поставщиков</Link>
+        <Link href="/offers?tab=import" aria-current={tab === 'import' ? 'page' : undefined}>Загрузить прайс</Link>
+        <Link href="/offers?tab=links" aria-current={tab === 'links' ? 'page' : undefined}>Ссылки</Link>
       </nav>
       {tab === 'offers' ? <OffersTab /> : tab === 'import' ? <ImportTab userId={user.id} /> : <LinksTab />}
     </main>
@@ -133,14 +130,12 @@ async function ImportTab({ userId }: { userId: string }) {
 
 async function LinksTab() {
   const db = createClient();
-  const [{ data: links }, { data: suppliers }, { data: itemRows }, { data: subs }, chatId] = await Promise.all([
+  const [{ data: links }, { data: suppliers }, { data: itemRows }, { data: subs }] = await Promise.all([
     db.from('offer_links').select('*').order('created_at', { ascending: false }),
     db.from('supplier_usage').select('supplier_id, docs_90d, docs_total').order('docs_90d', { ascending: false }),
     db.from('items').select('id, name, category').is('merged_into', null).order('category').order('name').range(0, 4999),
     db.from('offer_submissions').select('link_id, created_at').order('created_at', { ascending: false }).limit(2000),
-    getChatId(db),
   ]);
-  const th = await loadThresholds(db);
   const { data: supNames } = await db.from('suppliers').select('id, name');
   const nameById = new Map((supNames ?? []).map((s) => [s.id, s.name]));
   // Поставщики из 1С: сначала с накладными (по популярности), потом остальные по алфавиту
@@ -152,13 +147,18 @@ async function LinksTab() {
   const subCount = new Map<string, { n: number; last: string }>();
   (subs ?? []).forEach((s) => { const c = subCount.get(s.link_id); subCount.set(s.link_id, { n: (c?.n ?? 0) + 1, last: c?.last ?? s.created_at }); });
 
+  // Служебные ссылки, созданные при загрузке прайса из файла, поставщикам не отправляют
+  const shownLinks = ((links ?? []) as OfferLink[]).filter((l) => l.note !== 'Создана при загрузке прайса из файла');
   return (
     <>
-      <LinkForm suppliers={[...ranked, ...rest]} categories={[...catCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ru'))} items={itemRows ?? []} />
+      <NewLinkToggle defaultOpen={!shownLinks.length}>
+        <LinkForm suppliers={[...ranked, ...rest]} categories={[...catCounts.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ru'))} items={itemRows ?? []} />
+      </NewLinkToggle>
 
       <section className="card-box">
-        <h2>Созданные ссылки</h2>
-        {!links?.length ? <p className="muted" style={{ margin: 0 }}>Ссылок пока нет.</p> : (links as OfferLink[]).map((l) => {
+        <h2>Ссылки для поставщиков</h2>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>Поставщик открывает ссылку и сам вписывает свои цены. Входить в систему ему не нужно.</p>
+        {!shownLinks.length ? <p className="muted" style={{ margin: 0 }}>Ссылок пока нет.</p> : shownLinks.map((l) => {
           const state = linkState(l);
           const url = `${origin()}/o/${l.token}`;
           const sc = subCount.get(l.id);
@@ -187,9 +187,6 @@ async function LinksTab() {
           );
         })}
       </section>
-
-      <TelegramConnect configured={telegramConfigured()} connected={!!chatId} />
-      <AlertSettings up={Math.round(th.up * 100)} down={Math.round(th.down * 100)} connected={telegramConfigured() && !!chatId} />
     </>
   );
 }

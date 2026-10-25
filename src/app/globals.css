@@ -258,3 +258,16 @@ button { font: inherit; }
 .sup-meta { font-size: 12px; line-height: 16px; }
 .ot td.menu-cell { width: 34px; padding-left: 0; padding-right: 0; }
 .ot .pr .pb-trend { font-weight: 400; }
+
+/* Настройки */
+.settings { display: flex; flex-direction: column; gap: var(--space-4); max-width: 760px; }
+.new-link { position: relative; }
+.new-link__close { position: absolute; top: 14px; right: 16px; }
+/* Строка заказа: количество, поле и кнопки стоят на одной линии по нижнему краю поля */
+.ord-row { align-items: start; }
+.ord-row__name { align-self: center; }
+/* Кнопки на уровне поля ввода: сдвиг на высоту подписи «На складе» */
+.ord-row__acts { align-items: center; min-height: 34px; margin-top: 16px; }
+.ord-row__acts .pb-btn--sm { height: 34px; }
+.ord-row__label { line-height: 14px; }
+@media (max-width: 720px) { .ord-row__acts { margin-top: 0; } }
