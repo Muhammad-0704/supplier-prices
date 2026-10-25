@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Badge, SearchField, Segmented } from '@/components/ui';
+import { Badge, RowMenu, SearchField, Segmented } from '@/components/ui';
 import { longDate, plural, rub } from '@/lib/format';
 import type { OrderRow } from '@/lib/reorder-data';
 import { countLine, fmtQty, rhythmLine } from '@/lib/reorder-text';
@@ -49,9 +49,6 @@ export function OrderBoard({ rows, suppliers }: { rows: OrderRow[]; suppliers: R
 
   const n = useMemo(() => ({
     now: rows.filter((r) => r.s.status !== 'ok' && !r.s.ordered).length,
-    due: rows.filter((r) => r.s.status === 'due' && !r.s.ordered).length,
-    soon: rows.filter((r) => r.s.status === 'soon' && !r.s.ordered).length,
-    check: rows.filter((r) => r.s.status === 'check' && !r.s.ordered).length,
     ordered: rows.filter((r) => r.s.ordered).length,
     all: rows.length,
   }), [rows]);
@@ -84,18 +81,10 @@ export function OrderBoard({ rows, suppliers }: { rows: OrderRow[]; suppliers: R
   return (
     <>
       <section className="order-head">
-        <div>
-          <h2 className="order-title">Что заказать</h2>
-          <p className="muted order-sub">
-            По ритму ваших закупок за полгода, остатки 1С не используются. «Проверить» — товар не брали заметно дольше обычного. Впишите факт со склада, и расчёт пойдёт по нему.
-          </p>
-        </div>
-        <div className="order-kpi">
-          <div><span className="order-kpi__v order-kpi__v--bad">{n.due}</span><span className="muted">пора</span></div>
-          <div><span className="order-kpi__v">{n.soon}</span><span className="muted">скоро</span></div>
-          <div><span className="order-kpi__v">{n.check}</span><span className="muted">проверить</span></div>
-          <div><span className="order-kpi__v">{n.ordered}</span><span className="muted">заказано</span></div>
-        </div>
+        <h2 className="order-title">Что заказать</h2>
+        <p className="muted order-sub">
+          По ритму ваших закупок за полгода, остатки 1С не используются. «Проверить» — товар не брали заметно дольше обычного. Впишите факт со склада, и расчёт пойдёт по нему.
+        </p>
       </section>
 
       <div className="bar">
@@ -168,7 +157,11 @@ export function OrderBoard({ rows, suppliers }: { rows: OrderRow[]; suppliers: R
                       ) : (
                         <>
                           <button className="pb-btn pb-btn--sm" type="button" disabled={pending} onClick={() => run(setMark([r.itemId], 'ordered'))}>Заказано</button>
-                          <button className="pb-btn pb-btn--quiet pb-btn--sm" type="button" disabled={pending} title="Не напоминать неделю" onClick={() => run(setMark([r.itemId], 'snoozed', 7))}>Не сейчас</button>
+                          <RowMenu label={`Ещё действия: ${r.name}`} items={[
+                            { text: 'Не напоминать 3 дня', onSelect: () => run(setMark([r.itemId], 'snoozed', 3)), disabled: pending },
+                            { text: 'Не напоминать неделю', onSelect: () => run(setMark([r.itemId], 'snoozed', 7)), disabled: pending },
+                            { text: 'Не напоминать месяц', onSelect: () => run(setMark([r.itemId], 'snoozed', 30)), disabled: pending },
+                          ]} />
                         </>
                       )}
                     </div>

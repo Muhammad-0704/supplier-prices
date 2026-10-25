@@ -201,14 +201,9 @@ button { font: inherit; }
 @media (max-width: 760px) { .link-row { grid-template-columns: 1fr; } }
 
 /* Заказ */
-.order-head { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); align-items: flex-end; justify-content: space-between; }
+.order-head { display: flex; flex-direction: column; gap: 2px; }
 .order-title { margin: 0; font-size: 18px; line-height: 24px; }
-.order-sub { margin: 2px 0 0; font-size: 13px; max-width: 640px; }
-.order-kpi { display: flex; gap: var(--space-6); }
-.order-kpi > div { display: flex; flex-direction: column; }
-.order-kpi .muted { font-size: 12px; }
-.order-kpi__v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 22px; line-height: 28px; font-weight: 600; }
-.order-kpi__v--bad { color: var(--bad); }
+.order-sub { margin: 0; font-size: 13px; max-width: 640px; }
 .ord-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px 120px auto; gap: var(--space-3); align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line-soft); }
 .ord-row:last-child { border-bottom: 0; }
 .ord-row__name { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -271,3 +266,6 @@ button { font: inherit; }
 .ord-row__acts .pb-btn--sm { height: 34px; }
 .ord-row__label { line-height: 14px; }
 @media (max-width: 720px) { .ord-row__acts { margin-top: 0; } }
+.ord-row__acts .pb-menu__btn { height: 34px; }
+/* Пустое уведомление не выглядывает из-под края экрана */
+.toast:not(.on) { visibility: hidden; transition: transform .2s, visibility 0s .2s; }
