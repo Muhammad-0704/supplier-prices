@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { newToken, type OfferScope } from '@/lib/offers';
+import { isReveal } from '@/lib/reveal';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -33,6 +34,8 @@ export async function createLink(_prev: CreateLinkState, form: FormData): Promis
     const itemIds = form.getAll('item_ids').map(String).filter(Boolean);
     const days = Number(form.get('expires_days') || 0);
     const note = String(form.get('note') || '').trim().slice(0, 500) || null;
+    const revealRaw = String(form.get('reveal') || 'verdict');
+    const reveal = isReveal(revealRaw) ? revealRaw : 'verdict';
 
     if (supplierId && !company) {
       const { data } = await db.from('suppliers').select('name').eq('id', supplierId).single();
@@ -48,7 +51,7 @@ export async function createLink(_prev: CreateLinkState, form: FormData): Promis
     const { error } = await db.from('offer_links').insert({
       token, supplier_id: supplierId, company_name: company.slice(0, 200), scope,
       categories: scope === 'categories' ? categories : [], item_ids: scope === 'items' ? itemIds : [],
-      expires_at: days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null, note, created_by: user.id,
+      expires_at: days > 0 ? new Date(Date.now() + days * 86_400_000).toISOString() : null, note, reveal, created_by: user.id,
     });
     if (error) return { error: `Не удалось создать ссылку: ${error.message}` };
     revalidatePath('/offers');
@@ -61,6 +64,15 @@ export async function createLink(_prev: CreateLinkState, form: FormData): Promis
 export async function setLinkActive(form: FormData) {
   const { db } = await requireManager();
   await db.from('offer_links').update({ active: form.get('active') === 'true' }).eq('id', String(form.get('id')));
+  revalidatePath('/offers');
+}
+
+/** Поменять, что поставщик видит по уже отправленной ссылке. */
+export async function setLinkReveal(form: FormData) {
+  const { db } = await requireManager();
+  const reveal = String(form.get('reveal'));
+  if (!isReveal(reveal)) return;
+  await db.from('offer_links').update({ reveal }).eq('id', String(form.get('id')));
   revalidatePath('/offers');
 }
 

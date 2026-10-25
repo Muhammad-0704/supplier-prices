@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Reveal } from './reveal';
 import { applyOverride, deriveItem, type PriceOverride } from './derive';
 
 export type OfferScope = 'supplier_items' | 'categories' | 'items';
@@ -19,6 +20,7 @@ export interface OfferLink {
   created_at: string;
   last_opened_at: string | null;
   open_count: number;
+  reveal: Reveal;
 }
 
 export interface ScopeItem { id: string; name: string; unit: string; category: string }

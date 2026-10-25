@@ -29,7 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   const rows = v.value.lines.map((l) => ({
     submission_id: sub.id, link_id: link.id, item_id: l.itemId ?? null, custom_name: l.customName ?? null,
     unit: l.itemId ? byId.get(l.itemId)?.unit ?? null : l.unit ?? null, price: l.price,
-    min_qty: l.minQty ?? null, valid_until: l.validUntil ?? null, comment: l.comment ?? null,
+    min_qty: null, valid_until: l.validUntil ?? null, comment: l.comment ?? null,
   }));
   const { error: lerr } = await db.from('offer_lines').insert(rows);
   if (lerr) {
@@ -56,5 +56,6 @@ export async function POST(request: NextRequest, { params }: { params: { token: 
   ].filter(Boolean);
   await notify(db, lines.join('\n'));
 
-  return NextResponse.json({ ok: true, lines: result });
+  // Сравнение показываем поставщику, только если ссылка это разрешает
+  return NextResponse.json({ ok: true, reveal: link.reveal, lines: link.reveal === 'none' ? result.map((r) => ({ ...r, compare: 'unknown' as const })) : result });
 }

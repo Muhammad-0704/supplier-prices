@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { CopyButton } from './CopyButton';
 import { LinkForm } from './LinkForm';
 import { NewLinkToggle } from './NewLinkToggle';
+import { RevealSelect } from './RevealSelect';
 import { setLineStatus, setLinkActive } from './actions';
 import { PriceImport } from './PriceImport';
 import { loadBoard } from '@/lib/board';
@@ -22,7 +23,7 @@ function origin() {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://supplier-prices-ashy.vercel.app';
 }
 
-export default async function OffersPage({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function OffersPage({ searchParams }: { searchParams: { tab?: string; view?: string } }) {
   const db = createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
@@ -38,25 +39,38 @@ export default async function OffersPage({ searchParams }: { searchParams: { tab
         <Link href="/offers?tab=import" aria-current={tab === 'import' ? 'page' : undefined}>Загрузить прайс</Link>
         <Link href="/offers?tab=links" aria-current={tab === 'links' ? 'page' : undefined}>Ссылки</Link>
       </nav>
-      {tab === 'offers' ? <OffersTab /> : tab === 'import' ? <ImportTab userId={user.id} /> : <LinksTab />}
+      {tab === 'offers' ? <OffersTab archive={searchParams.view === 'archive'} /> : tab === 'import' ? <ImportTab userId={user.id} /> : <LinksTab />}
     </main>
   );
 }
 
-async function OffersTab() {
+async function OffersTab({ archive }: { archive: boolean }) {
   const db = createClient();
-  const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
-  const { data: subs } = await db.from('offer_submissions').select('id, link_id, contact, comment, created_at, source, file_name').gte('created_at', since).order('created_at', { ascending: false }).limit(60);
-  if (!subs?.length) {
-    return <div className="cards__note">Предложений пока нет. Создайте ссылку во вкладке «Ссылки для поставщиков» и отправьте её поставщику.</div>;
+  const since = new Date(Date.now() - 180 * 86_400_000).toISOString();
+  const { data: allSubs } = await db.from('offer_submissions').select('id, link_id, contact, comment, created_at, source, file_name').gte('created_at', since).order('created_at', { ascending: false }).limit(300);
+  if (!allSubs?.length) {
+    return <div className="cards__note">Предложений пока нет. Создайте ссылку во вкладке «Ссылки» и отправьте её поставщику.</div>;
   }
-  const subIds = subs.map((s) => s.id);
+  const allIds = allSubs.map((s) => s.id);
+  const { data: allLines } = await db.from('offer_lines').select('id, submission_id, item_id, custom_name, unit, price, min_qty, valid_until, status, comment').in('submission_id', allIds).order('id');
+  // В архиве — предложения, по всем строкам которых уже принято решение
+  const pending = new Set((allLines ?? []).filter((l) => l.status === 'new').map((l) => l.submission_id));
+  const subs = allSubs.filter((s) => (archive ? !pending.has(s.id) : pending.has(s.id))).slice(0, 60);
+  const nPending = allSubs.filter((s) => pending.has(s.id)).length;
+  const viewNav = (
+    <nav className="subtabs" aria-label="Какие предложения">
+      <Link href="/offers" aria-current={!archive ? 'page' : undefined}>На рассмотрении <span className="num">{nPending}</span></Link>
+      <Link href="/offers?view=archive" aria-current={archive ? 'page' : undefined}>Архив <span className="num">{allSubs.length - nPending}</span></Link>
+    </nav>
+  );
+  if (!subs.length) {
+    return <>{viewNav}<div className="cards__note">{archive ? 'В архиве пока пусто: сюда попадают предложения, по которым приняли решение.' : 'Новых предложений нет, по всем принято решение. Они в архиве.'}</div></>;
+  }
   const linkIds = [...new Set(subs.map((s) => s.link_id))];
-  const [{ data: lines }, { data: links }] = await Promise.all([
-    db.from('offer_lines').select('id, submission_id, item_id, custom_name, unit, price, min_qty, valid_until, status, comment').in('submission_id', subIds).order('id'),
-    db.from('offer_links').select('id, company_name').in('id', linkIds),
-  ]);
-  const itemIds = [...new Set((lines ?? []).map((l) => l.item_id).filter(Boolean) as string[])];
+  const subIdSet = new Set(subs.map((s) => s.id));
+  const lines = (allLines ?? []).filter((l) => subIdSet.has(l.submission_id));
+  const { data: links } = await db.from('offer_links').select('id, company_name').in('id', linkIds);
+  const itemIds = [...new Set(lines.map((l) => l.item_id).filter(Boolean) as string[])];
   const [{ data: items }, best] = await Promise.all([
     itemIds.length ? db.from('items').select('id, name, unit').in('id', itemIds) : Promise.resolve({ data: [] as { id: string; name: string; unit: string }[] }),
     ourBestPrices(db, itemIds),
@@ -66,8 +80,9 @@ async function OffersTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {viewNav}
       {subs.map((s) => {
-        const ls = (lines ?? []).filter((l) => l.submission_id === s.id);
+        const ls = lines.filter((l) => l.submission_id === s.id);
         const newIds = ls.filter((l) => l.status === 'new').map((l) => l.id).join(',');
         const cheaper = ls.filter((l) => l.item_id && best.get(l.item_id) && Number(l.price) < best.get(l.item_id)!).length;
         return (
@@ -169,6 +184,7 @@ async function LinksTab() {
                 <b>{l.company_name}</b> {state === 'active' ? <Badge tone="best">действует</Badge> : state === 'expired' ? <Badge>истекла</Badge> : <Badge>отключена</Badge>}
                 <div className="muted" style={{ fontSize: 13 }}>{SCOPE_TEXT[l.scope]}{scopeDetail}</div>
                 <div className="link-url">{url}</div>
+                <RevealSelect id={l.id} value={l.reveal} />
               </div>
               <div className="muted" style={{ fontSize: 13 }}>
                 Открывали: {l.open_count}{l.last_opened_at ? `, последний раз ${longDate(l.last_opened_at)} в ${time(l.last_opened_at)}` : ''}

@@ -1,17 +1,27 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { num } from '@/lib/format';
+import { DECISION, type Reveal } from '@/lib/reveal';
 
 interface Item { id: string; name: string; unit: string; category: string }
 type Compare = 'lower' | 'same' | 'higher' | 'unknown';
 interface Custom { key: number; name: string; unit: string; price: string }
 
-const COMPARE_TEXT: Record<Compare, string> = { lower: 'ниже нашей цены', same: 'на уровне нашей цены', higher: 'выше нашей цены', unknown: 'сравнить не с чем' };
+const COMPARE_TEXT: Record<Compare, string> = { lower: 'подходит: ниже нашей цены', same: 'на уровне нашей цены', higher: 'не подходит: выше нашей цены', unknown: 'сравнить не с чем' };
 const COMPARE_TONE: Record<Compare, string> = { lower: 'best', same: 'neutral', higher: 'rise', unknown: 'neutral' };
 
-export function OfferForm({ token, items, lastMine }: { token: string; items: Item[]; lastMine: Record<string, number> }) {
+const parse = (v: string) => Number(v.replace(/\s/g, '').replace(',', '.'));
+const compareTo = (p: number, ours: number | undefined): Compare => (!ours || !(p > 0) ? 'unknown' : p < ours * 0.995 ? 'lower' : p > ours * 1.005 ? 'higher' : 'same');
+
+export function OfferForm({ token, items, lastMine, ours, reveal }: {
+  token: string;
+  items: Item[];
+  lastMine: Record<string, { price: number; status: keyof typeof DECISION }>;
+  /** Наши цены — только если ссылка разрешает их показывать */
+  ours: Record<string, number> | null;
+  reveal: Reveal;
+}) {
   const [prices, setPrices] = useState<Record<string, string>>({});
-  const [minQty, setMinQty] = useState<Record<string, string>>({});
   const [custom, setCustom] = useState<Custom[]>([]);
   const [validUntil, setValidUntil] = useState('');
   const [contact, setContact] = useState('');
@@ -32,7 +42,7 @@ export function OfferForm({ token, items, lastMine }: { token: string; items: It
   async function submit() {
     setError('');
     const lines = [
-      ...Object.entries(prices).filter(([, v]) => v.trim()).map(([itemId, price]) => ({ itemId, price, minQty: minQty[itemId], validUntil: validUntil || undefined })),
+      ...Object.entries(prices).filter(([, v]) => v.trim()).map(([itemId, price]) => ({ itemId, price, validUntil: validUntil || undefined })),
       ...custom.filter((c) => c.name.trim() && c.price.trim()).map((c) => ({ customName: c.name, unit: c.unit, price: c.price, validUntil: validUntil || undefined })),
     ];
     if (!lines.length) { setError('Укажите цену хотя бы для одного товара.'); return; }
@@ -56,18 +66,18 @@ export function OfferForm({ token, items, lastMine }: { token: string; items: It
       <section className="card-box">
         <h2>Спасибо, цены отправлены</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Принято позиций: {result.length}. Ниже нашей текущей цены: {counts.lower ?? 0}, на уровне: {counts.same ?? 0}, выше: {counts.higher ?? 0}.
-          Мы свяжемся с вами, если предложение подойдёт.
+          Принято позиций: {result.length}.{reveal !== 'none' && ` Подходят: ${counts.lower ?? 0}, на уровне нашей цены: ${counts.same ?? 0}, не подходят: ${counts.higher ?? 0}.`}
+          {' '}Мы свяжемся с вами, если предложение подойдёт. Решение по каждой позиции появится на этой странице.
         </p>
         <div style={{ overflowX: 'auto' }}>
           <table className="ot">
-            <thead><tr><th>Товар</th><th className="r">Ваша цена</th><th className="r">Сравнение</th></tr></thead>
+            <thead><tr><th>Товар</th><th className="r">Ваша цена</th>{reveal !== 'none' && <th className="r">Сравнение</th>}</tr></thead>
             <tbody>
               {result.map((r, i) => (
                 <tr key={i}>
                   <td>{r.name}</td>
                   <td className="r pr">{num(r.price)} ₽</td>
-                  <td className="r"><span className={`pb-badge pb-badge--${COMPARE_TONE[r.compare]}`}>{COMPARE_TEXT[r.compare]}</span></td>
+                  {reveal !== 'none' && <td className="r"><span className={`pb-badge pb-badge--${COMPARE_TONE[r.compare]}`}>{COMPARE_TEXT[r.compare]}</span></td>}
                 </tr>
               ))}
             </tbody>
@@ -94,22 +104,29 @@ export function OfferForm({ token, items, lastMine }: { token: string; items: It
       {groups.map(([cat, list]) => (
         <section key={cat} className="offer-group">
           <h2 className="offer-group__title">{cat} <span className="num muted">{list.length}</span></h2>
-          {list.map((it) => (
-            <div key={it.id} className="offer-row">
-              <div className="offer-row__name">
-                <span>{it.name}</span>
-                <span className="muted">за {it.unit}{it.id in lastMine ? ` · ваша прошлая цена ${num(lastMine[it.id])} ₽` : ''}</span>
+          {list.map((it) => {
+            const last = lastMine[it.id];
+            const our = ours?.[it.id];
+            const typed = parse(prices[it.id] ?? '');
+            const live = our ? compareTo(typed, our) : 'unknown';
+            return (
+              <div key={it.id} className="offer-row">
+                <div className="offer-row__name">
+                  <span>{it.name}</span>
+                  <span className="muted">
+                    за {it.unit}
+                    {our ? <> · наша цена <b className="offer-our">{num(our)} ₽</b></> : null}
+                    {last ? <> · ваша прошлая {num(last.price)} ₽ <span className={`pb-badge pb-badge--${DECISION[last.status].tone}`}>{DECISION[last.status].text}</span></> : null}
+                  </span>
+                </div>
+                <label className="offer-row__price">
+                  <span className="sr">Цена за {it.unit}, ₽</span>
+                  <input className="input num" inputMode="decimal" placeholder="Цена, ₽" value={prices[it.id] ?? ''} onChange={(e) => setPrices({ ...prices, [it.id]: e.target.value })} />
+                  {live !== 'unknown' && <span className={`offer-live offer-live--${live}`}>{live === 'lower' ? 'ниже нашей' : live === 'same' ? 'как у нас' : 'выше нашей'}</span>}
+                </label>
               </div>
-              <label className="offer-row__price">
-                <span className="sr">Цена за {it.unit}, ₽</span>
-                <input className="input num" inputMode="decimal" placeholder="Цена, ₽" value={prices[it.id] ?? ''} onChange={(e) => setPrices({ ...prices, [it.id]: e.target.value })} />
-              </label>
-              <label className="offer-row__qty">
-                <span className="sr">Минимальная партия</span>
-                <input className="input" placeholder="Мин. партия" value={minQty[it.id] ?? ''} onChange={(e) => setMinQty({ ...minQty, [it.id]: e.target.value })} />
-              </label>
-            </div>
-          ))}
+            );
+          })}
         </section>
       ))}
 

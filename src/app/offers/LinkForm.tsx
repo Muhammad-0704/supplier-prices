@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { createLink } from './actions';
 import { CopyButton } from './CopyButton';
+import { REVEAL_OPTIONS } from '@/lib/reveal';
 
 interface Props {
   suppliers: { id: string; name: string }[];
@@ -80,6 +81,18 @@ export function LinkForm({ suppliers, categories, items }: Props) {
           <span className="muted" style={{ fontSize: 12 }}>Выбрано: {picked.size}{shown.length === 300 ? ' · показаны первые 300, уточните поиск' : ''}</span>
         </div>
       )}
+
+      <div className="field">
+        <label>Что поставщик видит о наших ценах</label>
+        <div className="reveal-opts">
+          {REVEAL_OPTIONS.map((o) => (
+            <label key={o.value} className="reveal-opt">
+              <input type="radio" name="reveal" value={o.value} defaultChecked={o.value === 'verdict'} />
+              <span><b>{o.title}</b><span className="muted">{o.hint}</span></span>
+            </label>
+          ))}
+        </div>
+      </div>
 
       <div className="row-form">
         <div className="field" style={{ flex: '0 1 220px' }}>
