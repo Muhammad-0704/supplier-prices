@@ -46,10 +46,16 @@ async function refMap(db: SupabaseClient, table: 'items' | 'suppliers'): Promise
 }
 
 async function syncSince(db: SupabaseClient): Promise<Date> {
+  const days = Number(process.env.SYNC_DAYS_BACK || 180);
+  const full = new Date(Date.now() - days * 86_400_000);
+  // Строки, загруженные до появления «вида операции», перечитываем целиком за весь период
+  if (onecMode() === 'odata') {
+    const { count } = await db.from('purchases').select('id', { count: 'exact', head: true }).is('operation', null);
+    if (count) return full;
+  }
   const { data } = await db.from('purchases').select('doc_date').order('doc_date', { ascending: false }).limit(1);
   if (data?.[0]?.doc_date) return new Date(Date.parse(data[0].doc_date) - OVERLAP_DAYS * 86_400_000);
-  const days = Number(process.env.SYNC_DAYS_BACK || 180);
-  return new Date(Date.now() - days * 86_400_000);
+  return full;
 }
 
 /**
