@@ -105,3 +105,25 @@
 
 
 @media (prefers-reduced-motion: reduce) { .pb-btn[aria-busy="true"] .pb-btn__icon, .pb-sync--syncing .pb-sync__dot { animation: none; } }
+
+/* Collapsible */
+.pb-coll { border-top: 1px solid var(--line-soft); }
+.pb-coll__head { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 12px 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.pb-coll__head:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+.pb-coll__title { font-size: 11px; line-height: 14px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; flex: none; }
+.pb-coll__sum { flex: 1 1 auto; min-width: 0; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pb-coll__chev { width: 16px; height: 16px; margin-left: auto; flex: none; color: var(--ink-muted); align-self: center; transition: transform .15s; }
+.pb-coll--open .pb-coll__chev { transform: rotate(90deg); }
+.pb-coll__head:hover .pb-coll__title, .pb-coll__head:hover .pb-coll__chev { color: var(--ink); }
+.pb-coll__body { padding-bottom: 12px; }
+
+/* RowMenu */
+.pb-menu { position: relative; display: inline-flex; }
+.pb-menu__btn { width: 30px; height: 28px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--ink-muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.pb-menu__btn:hover, .pb-menu__btn[aria-expanded="true"] { background: var(--surface-hover); color: var(--ink); }
+.pb-menu__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.pb-menu__list { position: fixed; z-index: 60; display: flex; flex-direction: column; min-width: 180px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-panel); }
+.pb-menu__item { border: 0; background: none; color: var(--ink); font: inherit; font-size: 13.5px; text-align: left; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; white-space: nowrap; }
+.pb-menu__item:hover, .pb-menu__item:focus-visible { background: var(--surface-hover); outline: none; }
+.pb-menu__item--muted { color: var(--ink-muted); }
+.pb-menu__item:disabled { opacity: .5; cursor: default; }

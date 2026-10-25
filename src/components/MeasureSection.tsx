@@ -5,7 +5,7 @@ import { pct, rub, rubFine } from '@/lib/format';
 import { measureText, type Base } from '@/lib/measure';
 import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardItem, Supplier } from '@/lib/types';
-import { Badge } from './ui';
+import { Badge, Collapsible } from './ui';
 
 const fmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
 const perBaseRub = rubFine;
@@ -51,9 +51,18 @@ export function MeasureSection({ item, items, suppliers, manager, onOpenItem, on
   const own = m ? item.bestPrice / m.perUnit : null;
   if (!m && !manager) return null;
 
+  // Итог для свёрнутого вида: своя цена за кг и есть ли дешевле
+  const cheapest = alts[0];
+  const summary = !m ? <span className="muted">фасовка не указана</span> : (
+    <>
+      <b>{perBaseRub(own!)}</b> за {m.base}
+      {cheapest && cheapest.diff < -0.05 ? <span className="good"> · есть на {pct(cheapest.diff)} дешевле</span>
+        : alts.length ? <span className="muted"> · похожих {alts.length}</span> : null}
+    </>
+  );
+
   return (
-    <div>
-      <h3>{m ? `Цена за ${m.base}` : 'Цена за кг'}</h3>
+    <Collapsible title={m ? `Цена за ${m.base}` : 'Цена за кг'} summary={summary}>
       {editing ? (
         <form className="measure-row" onSubmit={(e) => {
           e.preventDefault();
@@ -105,6 +114,6 @@ export function MeasureSection({ item, items, suppliers, manager, onOpenItem, on
           {alts.length > 0 && <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>Похожие подобраны по названию. Проверьте, что это действительно тот же товар.</p>}
         </div>
       )}
-    </div>
+    </Collapsible>
   );
 }

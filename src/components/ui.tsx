@@ -2,7 +2,7 @@
 /**
  * Компоненты дизайн-системы «Прайс-доска» на TypeScript. Классы и поведение совпадают с bundle.js дизайн-системы.
  */
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import { num, pct, plural, rub } from '@/lib/format';
 
 const cx = (...a: (string | false | null | undefined)[]) => a.filter(Boolean).join(' ');
@@ -184,3 +184,61 @@ export const RefreshIcon = () => (
     <path d="M21 4v5h-5" />
   </svg>
 );
+
+/** Свёрнутый раздел: заголовок и строка-итог, по нажатию раскрывается. */
+export function Collapsible({ title, summary, defaultOpen = false, children }: { title: string; summary?: ReactNode; defaultOpen?: boolean; children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className={cx('pb-coll', open && 'pb-coll--open')}>
+      <button type="button" className="pb-coll__head" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+        <span className="pb-coll__title">{title}</span>
+        {!open && summary != null && <span className="pb-coll__sum">{summary}</span>}
+        <svg className="pb-coll__chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
+      </button>
+      {open && <div className="pb-coll__body">{children}</div>}
+    </section>
+  );
+}
+
+/** Меню «⋯» с действиями: закрывается по клику мимо и по Escape. */
+export function RowMenu({ label, items }: { label: string; items: { text: string; onSelect: () => void; tone?: 'muted'; disabled?: boolean }[] }) {
+  // Меню привязано к экрану: таблицы с прокруткой не обрезают его
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null);
+  const open = pos != null;
+  const setOpen = (v: boolean) => {
+    if (!v) { setPos(null); return; }
+    const r = ref.current?.getBoundingClientRect();
+    if (r) setPos({ top: Math.min(r.bottom + 4, window.innerHeight - 160), right: Math.max(8, window.innerWidth - r.right) });
+  };
+  const ref = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setPos(null); };
+    // Escape закрывает меню, а не всю карточку товара: ловим раньше всех на window
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setPos(null); } };
+    // Прокрутка закрывает меню, но не в первые мгновения: телефон докручивает таблицу к нажатой кнопке
+    const opened = Date.now();
+    const close = () => { if (Date.now() - opened > 300) setPos(null); };
+    document.addEventListener('mousedown', away);
+    window.addEventListener('keydown', esc, true);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc, true);
+      window.removeEventListener('scroll', close, true); window.removeEventListener('resize', close);
+    };
+  }, [open]);
+  return (
+    <span className="pb-menu" ref={ref}>
+      <button type="button" className="pb-menu__btn" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>⋯</button>
+      {pos && (
+        <span className="pb-menu__list" role="menu" style={{ top: pos.top, right: pos.right }}>
+          {items.map((it) => (
+            <button key={it.text} type="button" role="menuitem" disabled={it.disabled} className={cx('pb-menu__item', it.tone === 'muted' && 'pb-menu__item--muted')}
+              onClick={() => { setOpen(false); it.onSelect(); }}>{it.text}</button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}

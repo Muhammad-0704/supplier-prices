@@ -3,7 +3,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { plural, relDays, rub, rubFine, longDate } from '@/lib/format';
 import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardItem, DerivedOffer, HistoryPoint, Supplier } from '@/lib/types';
-import { Badge, Button, Trend } from './ui';
+import { Badge, Button, Collapsible, RowMenu, Trend } from './ui';
 import { PriceChart } from './PriceChart';
 import { MeasureSection } from './MeasureSection';
 
@@ -126,7 +126,7 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
               </div>
               <button ref={closeRef} className="panel__close" type="button" aria-label="Закрыть" onClick={onClose}>×</button>
             </div>
-            <div className="panel__body">
+            <div className="panel__body" key={item.id}>
               <div className="acts">
                 <Button onClick={toggleFavorite} disabled={busy} aria-pressed={item.favorite}>{item.favorite ? '★ В избранном' : '☆ В избранное'}</Button>
                 {manager && <Button variant="quiet" onClick={toggleHidden} disabled={busy}>{item.hidden ? 'Вернуть на доску' : 'Скрыть с доски'}</Button>}
@@ -136,10 +136,10 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
               <div className="verdict">{verdict}</div>
 
               <div>
-                <h3>Предложения</h3>
+                <h3>Цены поставщиков</h3>
                 <div style={{ overflowX: 'auto' }}>
                   <table className="ot">
-                    <thead><tr><th>Поставщик</th><th className="r">Цена</th>{perCol && <th className="r">За {item.measure!.base}</th>}<th className="r">С прошлой</th><th className="r">Закупка</th><th /></tr></thead>
+                    <thead><tr><th>Поставщик</th><th className="r">Цена</th>{perCol && <th className="r">За {item.measure!.base}</th>}<th aria-label="Действия" /></tr></thead>
                     <tbody>
                       {item.offers.map((o, i) => (
                         <Fragment key={o.supplierId}>
@@ -151,33 +151,33 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
                               {o.supplierId === item.currentSupplierId && <Badge tone="current" />}
                               {o.stale && <Badge tone="stale" />}
                               {o.manual?.kind === 'price' && <Badge tone="role">вручную</Badge>}
+                              <div className="muted sup-meta" title={longDate(o.purchaseDate ?? o.lastDate)}>
+                                закупка {relDays(o.manual?.kind === 'price' ? Math.max(0, Math.floor((Date.now() - Date.parse(o.purchaseDate!)) / 86_400_000)) : o.ago)}
+                              </div>
                               {o.manual && (
-                                <div className="muted" style={{ fontSize: 12 }}>
+                                <div className="muted sup-meta">
                                   {o.manual.kind === 'price' ? `Обновил${o.manual.by ? ` ${o.manual.by}` : 'и'} ${longDate(o.manual.at)}, в 1С ${rub(o.manual.sourcePrice)}` : `Отметил${o.manual.by ? ` ${o.manual.by}` : 'и'} ${longDate(o.manual.at)}`}
                                   {o.manual.note ? ` · ${o.manual.note}` : ''}
                                 </div>
                               )}
                             </td>
-                            <td className="r pr">{rub(o.price)}</td>
+                            <td className="r pr">{rub(o.price)}<div><Trend value={o.change} /></div></td>
                             {perCol && <td className="r sm">{rubFine(o.price / item.measure!.perUnit)}</td>}
-                            <td className="r"><Trend value={o.change} zeroLabel="без изм." /></td>
-                            <td className="r sm" title={longDate(o.purchaseDate ?? o.lastDate)}>{relDays(o.manual?.kind === 'price' ? Math.max(0, Math.floor((Date.now() - Date.parse(o.purchaseDate!)) / 86_400_000)) : o.ago)}</td>
-                            <td className="r">
-                              <span className="price-acts">
-                                {o.manual ? (
-                                  <button type="button" className="link" disabled={busy} onClick={() => mark(o, null)}>{o.manual.kind === 'price' ? 'Цена из 1С' : 'Снять'}</button>
-                                ) : (
-                                  <>
-                                    <button type="button" className="link" disabled={busy} onClick={() => { setEditing(o.supplierId); setNewPrice(''); setNote(''); }}>Новая цена</button>
-                                    {!o.stale && <button type="button" className="link link--muted" disabled={busy} onClick={() => mark(o, 'stale')}>Устарела</button>}
-                                  </>
-                                )}
-                              </span>
+                            <td className="r menu-cell">
+                              <RowMenu label={`Действия с ценой ${name(o.supplierId)}`} items={[
+                                ...(o.manual?.kind === 'price'
+                                  ? [{ text: 'Изменить цену', onSelect: () => { setEditing(o.supplierId); setNewPrice(String(o.price)); setNote(o.manual?.note ?? ''); } },
+                                     { text: 'Вернуть цену из 1С', onSelect: () => mark(o, null), disabled: busy }]
+                                  : [{ text: 'Новая цена', onSelect: () => { setEditing(o.supplierId); setNewPrice(''); setNote(''); } }]),
+                                ...(o.manual?.kind === 'stale'
+                                  ? [{ text: 'Снять «устарела»', onSelect: () => mark(o, null), disabled: busy }]
+                                  : !o.stale && !o.manual ? [{ text: 'Цена устарела', onSelect: () => mark(o, 'stale'), tone: 'muted' as const, disabled: busy }] : []),
+                              ]} />
                             </td>
                           </tr>
                           {editing === o.supplierId && (
                             <tr className="price-edit">
-                              <td colSpan={perCol ? 6 : 5}>
+                              <td colSpan={perCol ? 4 : 3}>
                                 <form className="measure-row" onSubmit={(e) => { e.preventDefault(); mark(o, 'price'); }}>
                                   <span>Сейчас у {name(o.supplierId)}:</span>
                                   <input className="input num" inputMode="decimal" autoFocus placeholder={String(o.price)} value={newPrice} onChange={(e) => setNewPrice(e.target.value)} aria-label="Новая цена" />
@@ -199,8 +199,7 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
               <MeasureSection item={item} items={items} suppliers={suppliers} manager={manager} onOpenItem={onOpenItem} onChanged={onChanged} />
 
               {item.proposals?.length ? (
-                <div>
-                  <h3>Предложения поставщиков</h3>
+                <Collapsible title={`Предложения · ${item.proposals.length}`} summary={proposalSummary(item)}>
                   <table className="ot">
                     <thead><tr><th>Фирма</th><th className="r">Цена</th><th className="r">Когда</th></tr></thead>
                     <tbody>
@@ -217,19 +216,36 @@ export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose
                     </tbody>
                   </table>
                   {manager && <a href="/offers" className="muted" style={{ fontSize: 13 }}>Все предложения →</a>}
-                </div>
+                </Collapsible>
               ) : null}
 
-              <div className="chart">
-                <h3>История цен</h3>
-                {history === null ? <p className="muted">Загружаем историю…</p> : history.length ? (
-                  <PriceChart history={history} order={item.offers.map((o) => o.supplierId)} names={name} />
-                ) : <p className="muted">Истории пока нет.</p>}
-              </div>
+              <Collapsible title="История цен" summary={historySummary(history, item.unit)}>
+                <div className="chart">
+                  {history === null ? <p className="muted">Загружаем историю…</p> : history.length ? (
+                    <PriceChart history={history} order={item.offers.map((o) => o.supplierId)} names={name} />
+                  ) : <p className="muted">Истории пока нет.</p>}
+                </div>
+              </Collapsible>
             </div>
           </>
         )}
       </aside>
     </>
   );
+}
+
+/** «от 2 850 ₽ у Ромашки · дешевле нашей» */
+function proposalSummary(item: BoardItem): React.ReactNode {
+  const p = item.proposals![0];
+  const cheaper = p.price < item.bestPrice * 0.995;
+  return <>от <b>{rub(p.price)}</b> у {p.company}{cheaper && <span className="good"> · дешевле нашей</span>}</>;
+}
+
+/** «14 закупок за полгода · 28–34 ₽» */
+function historySummary(h: HistoryPoint[] | null, unit: string): React.ReactNode {
+  if (h === null) return <span className="muted">загружаем…</span>;
+  if (!h.length) return <span className="muted">нет закупок за полгода</span>;
+  const prices = h.map((x) => x.price);
+  const min = Math.min(...prices), max = Math.max(...prices);
+  return <>{h.length} {plural(h.length, 'закупка', 'закупки', 'закупок')} за полгода · {min === max ? rub(min) : `${rub(min)} – ${rub(max)}`} <span className="muted">за {unit}</span></>;
 }
