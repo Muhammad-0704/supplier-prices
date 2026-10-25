@@ -73,7 +73,7 @@ export function createODataClient(opts: ODataClientOptions) {
 
   async function once(url: string): Promise<ODataRow[]> {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 60_000);
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 12_000);
     try {
       const res = await fetcher(url, { headers: { Authorization: auth, Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
       if (res.status === 401 || res.status === 403) {
@@ -105,7 +105,7 @@ export function createODataClient(opts: ODataClientOptions) {
         if (e instanceof ODataError && e.status) throw e;
         if (e instanceof StallError) throw e;
         if (!opts.fetcher) console.log(`[odata] ${entityOf(url)} попытка ${attempt} оборвалась: ${(e as Error).message}`);
-        if (attempt >= 3) throw new ODataError(`1С:Фреш не отдал ${entityOf(url)} за 3 попытки (${(e as Error).message}).`);
+        if (attempt >= 5) throw new ODataError(`1С:Фреш не отдал ${entityOf(url)} за 5 попыток (${(e as Error).message}).`);
         await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
     }
