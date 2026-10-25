@@ -27,6 +27,14 @@ export const ONEC = {
   pageSize: 500,
 } as const;
 
+/** Только нужные реквизиты: без $select 1С отдаёт объект целиком со всеми табличными частями, это в разы медленнее. */
+export const SELECT = {
+  items: ['Ref_Key', 'Description', 'IsFolder', 'Parent_Key', 'DeletionMark', ONEC.items.unitField],
+  units: ['Ref_Key', 'Description'],
+  suppliers: ['Ref_Key', 'Description', 'IsFolder', ONEC.suppliers.innField],
+  receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField, ONEC.receipts.linesField],
+};
+
 export const EMPTY_REF = '00000000-0000-0000-0000-000000000000';
 
 export type OneCMode = 'mock' | 'odata';

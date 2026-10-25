@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ONEC, onecMode } from './onec/config';
+import { ONEC, SELECT, onecMode } from './onec/config';
 import { mapItems, mapReceipts, mapSuppliers, type ReceiptLine } from './onec/map';
 import { mockFetcher } from './onec/mock';
 import { createODataClient, odataDate, type ODataClient } from './onec/odata';
@@ -64,11 +64,14 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
   };
 
   try {
+    const t0 = Date.now();
+    const log = (m: string) => console.log(`[sync] ${((Date.now() - t0) / 1000).toFixed(1)}s ${m}`);
     const [rawItems, rawUnits, rawSuppliers] = await Promise.all([
-      onec.list(ONEC.items.entity),
-      onec.list(ONEC.units.entity).catch(() => []),
-      onec.list(ONEC.suppliers.entity),
+      onec.list(ONEC.items.entity, { select: SELECT.items }),
+      onec.list(ONEC.units.entity, { select: SELECT.units }).catch(() => []),
+      onec.list(ONEC.suppliers.entity, { select: SELECT.suppliers }),
     ]);
+    log(`справочники: товаров ${rawItems.length}, ед. ${rawUnits.length}, контрагентов ${rawSuppliers.length}`);
     const items = mapItems(rawItems, rawUnits);
     const suppliers = mapSuppliers(rawSuppliers);
     const now = new Date().toISOString();
@@ -76,8 +79,9 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
     await upsertChunks(db, 'suppliers', suppliers.map((s) => ({ ...s, updated_at: now })), 'onec_ref');
 
     const since = await syncSince(db);
-    const rawDocs = await onec.list(ONEC.receipts.entity, { filter: `Date ge ${odataDate(since)}` });
+    const rawDocs = await onec.list(ONEC.receipts.entity, { filter: `Date ge ${odataDate(since)}`, select: SELECT.receipts });
     const { lines, docRefs } = mapReceipts(rawDocs);
+    log(`накладные с ${since.toISOString().slice(0, 10)}: ${rawDocs.length}, строк ${lines.length}`);
 
     const itemIds = await refMap(db, 'items');
     const supplierIds = await refMap(db, 'suppliers');

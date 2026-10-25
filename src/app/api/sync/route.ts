@@ -4,11 +4,11 @@ import { createClient } from '@/lib/supabase/server';
 import { runSync } from '@/lib/sync';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /** Не запускать вторую синхронизацию, пока идёт первая (кнопку могут нажать двое одновременно). */
 async function alreadyRunning(db: ReturnType<typeof createAdminClient>) {
-  const since = new Date(Date.now() - 5 * 60_000).toISOString();
+  const since = new Date(Date.now() - 6 * 60_000).toISOString();
   const { data } = await db.from('sync_runs').select('id').eq('status', 'running').gte('started_at', since).limit(1);
   return !!data?.length;
 }

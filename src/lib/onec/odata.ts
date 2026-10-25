@@ -45,7 +45,7 @@ export function createODataClient(opts: ODataClientOptions) {
 
   async function get(url: string): Promise<ODataRow[]> {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 30_000);
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 90_000);
     let res: Response;
     try {
       res = await fetcher(url, { headers: { Authorization: auth, Accept: 'application/json' }, signal: ctrl.signal, cache: 'no-store' });
@@ -65,7 +65,9 @@ export function createODataClient(opts: ODataClientOptions) {
       throw new ODataError(`1С вернула ошибку ${res.status}: ${text.slice(0, 300)}`, res.status);
     }
     const body = (await res.json()) as { value?: ODataRow[] };
-    return body.value ?? [];
+    const rows = body.value ?? [];
+    if (!opts.fetcher) console.log(`[odata] ${decodeURIComponent(new URL(url).pathname.split('/').pop() || '')} skip=${new URL(url).searchParams.get('$skip')} → ${rows.length}`);
+    return rows;
   }
 
   /** Читает всю выборку постранично ($top/$skip). */
