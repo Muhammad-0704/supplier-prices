@@ -118,7 +118,7 @@ export function createODataClient(opts: ODataClientOptions) {
    * Читает всю выборку постранично ($top/$skip). Большие ответы между Россией и зарубежными серверами
    * иногда «замерзают» на полпути, поэтому порции маленькие, а при зависании порция уменьшается вдвое.
    */
-  async function list(entity: string, params: { filter?: string; select?: string[]; pageSize?: number } = {}): Promise<ODataRow[]> {
+  async function list(entity: string, params: { filter?: string; select?: string[]; pageSize?: number; orderby?: string } = {}): Promise<ODataRow[]> {
     let size = params.pageSize ?? ONEC.pageSize;
     const out: ODataRow[] = [];
     for (let skip = 0; ; ) {
@@ -128,7 +128,7 @@ export function createODataClient(opts: ODataClientOptions) {
         $select: params.select?.join(','),
         $top: size,
         $skip: skip,
-        $orderby: 'Ref_Key',
+        $orderby: params.orderby ?? 'Ref_Key',
       });
       let page: ODataRow[];
       try {

@@ -90,7 +90,7 @@ export async function runSync(db: SupabaseClient, trigger: 'manual' | 'cron', on
     const rawLines: ODataRow[] = [];
     for (let i = 0; i < batches.length; i += 3) {
       const part = await Promise.all(batches.slice(i, i + 3).map((b) =>
-        onec.list(LINES_ENTITY, { filter: b.map((r) => `Ref_Key eq guid'${r}'`).join(' or '), select: SELECT.lines, pageSize: 60 })));
+        onec.list(LINES_ENTITY, { filter: b.map((r) => `Ref_Key eq guid'${r}'`).join(' or '), select: SELECT.lines, pageSize: 60, orderby: 'Ref_Key,LineNumber' })));
       part.forEach((p) => rawLines.push(...p));
     }
     const { lines, docRefs } = mapReceipts(rawDocs, rawLines);

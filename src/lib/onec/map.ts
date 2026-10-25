@@ -78,10 +78,13 @@ export function mapReceipts(rows: ODataRow[], separateLines?: ODataRow[]): Mappe
   const lines: ReceiptLine[] = [];
   const docRefs: string[] = [];
   const cfg = ONEC.receipts;
-  const byDoc = new Map<string, ODataRow[]>();
+  // Строки по накладным; одна и та же строка могла прийти дважды на стыке страниц — оставляем одну
+  const byDoc = new Map<string, Map<number, ODataRow>>();
   for (const l of separateLines ?? []) {
     const ref = str(l.Ref_Key);
-    byDoc.set(ref, [...(byDoc.get(ref) ?? []), l]);
+    const m = byDoc.get(ref) ?? new Map<number, ODataRow>();
+    m.set(n(l.LineNumber), l);
+    byDoc.set(ref, m);
   }
   for (const d of rows) {
     const ref = str(d.Ref_Key);
@@ -92,7 +95,7 @@ export function mapReceipts(rows: ODataRow[], separateLines?: ODataRow[]): Mappe
     if (!supplier || supplier === EMPTY_REF) continue;
     const date = onecDateToIso(d.Date);
     const inline = Array.isArray(d[cfg.linesField]) ? (d[cfg.linesField] as ODataRow[]) : null;
-    const tab = inline ?? (byDoc.get(ref) ?? []).sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
+    const tab = inline ?? [...(byDoc.get(ref)?.values() ?? [])].sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
     tab.forEach((l, i) => {
       const item = str(l[cfg.itemField]);
       const price = n(l[cfg.priceField]);

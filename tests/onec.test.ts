@@ -38,6 +38,14 @@ describe('разбор OData 1С', () => {
     expect(lines[0].doc_date).toBe('2026-10-20T07:15:00.000Z');
   });
 
+  it('строки отдельным объектом: повтор на стыке страниц не даёт дублей', () => {
+    const head = { Ref_Key: 'd1', Number: 'ПН-1', Date: '2026-10-20T10:00:00', Posted: true, Контрагент_Key: 's1' };
+    const l1 = { Ref_Key: 'd1', LineNumber: 1, Номенклатура_Key: 'i1', Количество: 2, Цена: 100 };
+    const l2 = { Ref_Key: 'd1', LineNumber: 2, Номенклатура_Key: 'i2', Количество: 1, Цена: 50 };
+    const { lines } = mapReceipts([head], [l2, l1, l2]);
+    expect(lines.map((l) => [l.line_no, l.item_ref])).toEqual([[1, 'i1'], [2, 'i2']]);
+  });
+
   it('дата 1С без пояса считается московской', () => {
     expect(onecDateToIso('2026-10-25T09:00:00')).toBe('2026-10-25T06:00:00.000Z');
     expect(onecDateToIso('2026-10-25T09:00:00Z')).toBe('2026-10-25T09:00:00.000Z');
