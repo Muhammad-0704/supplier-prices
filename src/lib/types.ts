@@ -3,6 +3,8 @@ export type Role = 'manager' | 'staff';
 export interface Supplier {
   id: string;
   name: string;
+  /** Накладных за последние 90 дней: по этому числу колонки идут слева направо */
+  docs90d?: number;
 }
 
 /** Последняя цена товара у одного поставщика. */

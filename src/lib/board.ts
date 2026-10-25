@@ -26,7 +26,8 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
   type OfferR = { item_id: string; supplier_id: string; last_price: number; prev_price: number | null; last_date: string };
   type UsageR = { item_id: string; monthly_qty: number };
 
-  const [suppliers, items, offers, usage, flags, favs, lastRun] = await Promise.all([
+  type SupUseR = { supplier_id: string; docs_90d: number; docs_total: number; last_date: string };
+  const [suppliers, items, offers, usage, flags, favs, lastRun, supUse] = await Promise.all([
     all<{ id: string; name: string }>((f, t) => db.from('suppliers').select('id, name').order('name').range(f, t)),
     all<ItemR>((f, t) => db.from('items').select('id, name, unit, category').is('merged_into', null).range(f, t)),
     all<OfferR>((f, t) => db.from('offer_prices').select('item_id, supplier_id, last_price, prev_price, last_date').range(f, t)),
@@ -34,6 +35,7 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
     all<{ item_id: string }>((f, t) => db.from('item_flags').select('item_id').eq('hidden', true).range(f, t)),
     all<{ item_id: string }>((f, t) => db.from('user_favorites').select('item_id').eq('user_id', userId).range(f, t)),
     db.from('sync_runs').select('status, finished_at, message').order('started_at', { ascending: false }).limit(1),
+    all<SupUseR>((f, t) => db.from('supplier_usage').select('supplier_id, docs_90d, docs_total, last_date').range(f, t)),
   ]);
 
   const byItem = new Map<string, Offer[]>();
@@ -68,10 +70,27 @@ export async function loadBoard(db: SupabaseClient, userId: string): Promise<Boa
   return {
     role,
     userName: profile?.full_name || '',
-    suppliers: suppliers.filter((s) => used.has(s.id)),
+    suppliers: orderByPopularity(suppliers.filter((s) => used.has(s.id)), supUse),
     items: boardItems.sort((a, b) => a.category.localeCompare(b.category, 'ru') || a.name.localeCompare(b.name, 'ru')),
     sync,
     rareDays,
     mock: onecMode() === 'mock',
   };
+}
+
+/**
+ * Колонки поставщиков по популярности: больше накладных за 90 дней — левее.
+ * При равенстве — у кого накладных больше за всё время, потом кто привозил позже, потом по алфавиту.
+ */
+function orderByPopularity<T extends { id: string; name: string }>(list: T[], usage: { supplier_id: string; docs_90d: number; docs_total: number; last_date: string }[]): (T & { docs90d: number })[] {
+  const u = new Map(usage.map((x) => [x.supplier_id, x]));
+  return list
+    .map((s) => ({ ...s, docs90d: Number(u.get(s.id)?.docs_90d ?? 0) }))
+    .sort((a, b) => {
+      const ua = u.get(a.id), ub = u.get(b.id);
+      return (Number(ub?.docs_90d ?? 0) - Number(ua?.docs_90d ?? 0))
+        || (Number(ub?.docs_total ?? 0) - Number(ua?.docs_total ?? 0))
+        || (Date.parse(ub?.last_date ?? '0') - Date.parse(ua?.last_date ?? '0'))
+        || a.name.localeCompare(b.name, 'ru');
+    });
 }
