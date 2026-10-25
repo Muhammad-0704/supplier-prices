@@ -108,3 +108,72 @@ export async function saveThresholds(_prev: ThresholdState, form: FormData): Pro
     return { error: (e as Error).message };
   }
 }
+
+export interface ImportLine { itemId: string | null; name: string; unit: string | null; price: number; note: string | null }
+export type ImportState = { ok?: string; error?: string };
+
+/**
+ * Прайс поставщика из файла → предложение в разделе «Предложения».
+ * Сохраняется под служебной (выключенной) ссылкой этой фирмы, чтобы история и доска работали как с обычными предложениями.
+ */
+export async function importPriceList(payload: { supplierId: string | null; company: string; fileName: string; validUntil: string | null; lines: ImportLine[] }): Promise<ImportState> {
+  try {
+    const { db, user } = await requireManager();
+    const supplierId = payload.supplierId || null;
+    let company = payload.company.trim().slice(0, 200);
+    if (supplierId && !company) {
+      const { data } = await db.from('suppliers').select('name').eq('id', supplierId).single();
+      company = data?.name ?? '';
+    }
+    if (!company) return { error: 'Выберите поставщика или впишите название фирмы.' };
+    const validUntil = payload.validUntil && /^\d{4}-\d{2}-\d{2}$/.test(payload.validUntil) ? payload.validUntil : null;
+
+    const lines = payload.lines
+      .filter((l) => Number.isFinite(l.price) && l.price > 0 && l.price < 1e10 && (l.itemId || l.name.trim()))
+      .slice(0, 3000)
+      .map((l) => ({
+        item_id: l.itemId || null,
+        custom_name: l.itemId ? null : l.name.trim().slice(0, 300),
+        unit: l.unit?.slice(0, 20) || null,
+        price: Math.round(l.price * 100) / 100,
+        comment: l.note?.slice(0, 500) || null,
+        valid_until: validUntil,
+      }));
+    if (!lines.length) return { error: 'Отметьте хотя бы одну строку прайса.' };
+
+    // Ссылка этой фирмы: последняя существующая или новая выключенная
+    let q = db.from('offer_links').select('id').order('created_at', { ascending: false }).limit(1);
+    q = supplierId ? q.eq('supplier_id', supplierId) : q.is('supplier_id', null).ilike('company_name', company.replace(/[%_\\]/g, '\\$&'));
+    const { data: found } = await q;
+    let linkId = found?.[0]?.id as string | undefined;
+    if (!linkId) {
+      const itemIds = [...new Set(lines.map((l) => l.item_id).filter(Boolean) as string[])];
+      const { data: created, error } = await db.from('offer_links').insert({
+        token: newToken(), supplier_id: supplierId, company_name: company, scope: 'items', item_ids: itemIds,
+        active: false, note: 'Создана при загрузке прайса из файла', created_by: user.id,
+      }).select('id').single();
+      if (error || !created) return { error: `Не удалось сохранить: ${error?.message}` };
+      linkId = created.id;
+    }
+
+    // Отправки пишет только сервер (у команды нет права вставлять их напрямую)
+    const admin = createAdminClient();
+    const { data: sub, error: subErr } = await admin.from('offer_submissions')
+      .insert({ link_id: linkId, source: 'file', file_name: payload.fileName.slice(0, 200), comment: `Загрузил ${user.email ?? 'руководитель'}` })
+      .select('id').single();
+    if (subErr || !sub) return { error: `Не удалось сохранить: ${subErr?.message}` };
+    for (let i = 0; i < lines.length; i += 500) {
+      const { error } = await admin.from('offer_lines').insert(lines.slice(i, i + 500).map((l) => ({ ...l, submission_id: sub.id, link_id: linkId })));
+      if (error) {
+        await admin.from('offer_submissions').delete().eq('id', sub.id);
+        return { error: `Не удалось сохранить строки: ${error.message}` };
+      }
+    }
+    revalidatePath('/offers');
+    revalidatePath('/');
+    const matched = lines.filter((l) => l.item_id).length;
+    return { ok: `Прайс «${company}» сохранён: ${lines.length} строк, из них с нашими товарами ${matched}.` };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}

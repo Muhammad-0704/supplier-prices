@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { rub, plural, shortDate, longDate, syncLabel } from '@/lib/format';
+import { rub, rubFine, pct, plural, shortDate, longDate, syncLabel } from '@/lib/format';
 import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardData, BoardItem, Supplier } from '@/lib/types';
 import { Button, Chip, ItemCard, PriceCell, RefreshIcon, SearchField, Segmented, StatStrip, SyncStatus } from './ui';
@@ -208,7 +208,7 @@ export function Board({ data }: { data: BoardData }) {
             const c = it.offers.find((o) => o.supplierId === it.currentSupplierId)!;
             return (
               <ItemCard key={it.id} name={it.name} favorite={it.favorite}
-                meta={`${it.category} · за ${it.unit}${it.rare ? ` · ${it.agoAny} дн. не заказывали` : ''}`}
+                meta={`${it.category} · за ${it.unit}${it.rare ? ` · ${it.agoAny} дн. не заказывали` : ''}${it.cheaperAlt ? ` · другая фасовка дешевле за ${it.cheaperAlt.base} на ${pct(it.cheaperAlt.diff)}` : ''}`}
                 best={{ price: b.price, supplier: sup.get(b.supplierId)?.name ?? '—' }}
                 current={{ price: c.price, supplier: sup.get(c.supplierId)?.name ?? '—' }}
                 overpay={manager ? it.overMonth ?? 0 : undefined}
@@ -229,7 +229,7 @@ export function Board({ data }: { data: BoardData }) {
         </div>
       )}
 
-      <ItemPanel item={open} suppliers={sup} manager={manager} onClose={() => setOpenId(null)} onChanged={(m) => { showToast(m); router.refresh(); }} />
+      <ItemPanel item={open} items={data.items} suppliers={sup} manager={manager} onOpenItem={setOpenId} onClose={() => setOpenId(null)} onChanged={(m) => { showToast(m); router.refresh(); }} />
       <div className={`toast${toast ? ' on' : ''}`} role="status">{toast}</div>
     </>
   );
@@ -269,6 +269,7 @@ function Matrix(props: {
             {it.unit} · берём у {curName}
             {over ? <> · <b>+{rub(it.overUnit!)}</b></> : it.rare ? ` · ${it.agoAny} дн. не заказывали` : ''}
             {cheaperProposal(it) && <> · <span className="prop" title={`Предложение от ${cheaperProposal(it)!.company}`}>предл. {rub(cheaperProposal(it)!.price)}</span></>}
+            {it.cheaperAlt && <> · <span className="alt" title={`${it.cheaperAlt.name}: ${rubFine(it.cheaperAlt.perBase)} за ${it.cheaperAlt.base} у ${names.get(it.cheaperAlt.supplierId) ?? '—'}`}>другая фасовка −{pct(it.cheaperAlt.diff)} за {it.cheaperAlt.base}</span></>}
           </span>
         </th>
         {sups.map((s) => {

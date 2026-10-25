@@ -1,13 +1,16 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { plural, relDays, rub, longDate } from '@/lib/format';
+import { plural, relDays, rub, rubFine, longDate } from '@/lib/format';
 import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardItem, HistoryPoint, Supplier } from '@/lib/types';
 import { Badge, Button, Trend } from './ui';
 import { PriceChart } from './PriceChart';
+import { MeasureSection } from './MeasureSection';
 
-export function ItemPanel({ item, suppliers, manager, onClose, onChanged }: {
+export function ItemPanel({ item, items, suppliers, manager, onOpenItem, onClose, onChanged }: {
   item: BoardItem | null;
+  items: BoardItem[];
+  onOpenItem: (id: string) => void;
   suppliers: Map<string, Supplier>;
   manager: boolean;
   onClose: () => void;
@@ -61,6 +64,8 @@ export function ItemPanel({ item, suppliers, manager, onClose, onChanged }: {
     onChanged(error ? `Не получилось: ${error.message}` : item.hidden ? 'Товар снова на доске' : 'Товар скрыт с доски для всей команды. Вернуть можно во вкладке «Скрытые»');
   }
 
+  // Колонка «за кг», если единица товара — не кг и не литр
+  const perCol = !!item?.measure && item.measure.perUnit !== 1;
   let verdict: React.ReactNode = null;
   if (item) {
     const cur = item.offers.find((o) => o.supplierId === item.currentSupplierId)!;
@@ -100,7 +105,7 @@ export function ItemPanel({ item, suppliers, manager, onClose, onChanged }: {
                 <h3>Предложения</h3>
                 <div style={{ overflowX: 'auto' }}>
                   <table className="ot">
-                    <thead><tr><th>Поставщик</th><th className="r">Цена</th><th className="r">С прошлой</th><th className="r">Закупка</th></tr></thead>
+                    <thead><tr><th>Поставщик</th><th className="r">Цена</th>{perCol && <th className="r">За {item.measure!.base}</th>}<th className="r">С прошлой</th><th className="r">Закупка</th></tr></thead>
                     <tbody>
                       {item.offers.map((o, i) => (
                         <tr key={o.supplierId}>
@@ -112,6 +117,7 @@ export function ItemPanel({ item, suppliers, manager, onClose, onChanged }: {
                             {o.stale && <Badge tone="stale" />}
                           </td>
                           <td className="r pr">{rub(o.price)}</td>
+                          {perCol && <td className="r sm">{rubFine(o.price / item.measure!.perUnit)}</td>}
                           <td className="r"><Trend value={o.change} zeroLabel="без изм." /></td>
                           <td className="r sm" title={longDate(o.lastDate)}>{relDays(o.ago)}</td>
                         </tr>
@@ -120,6 +126,8 @@ export function ItemPanel({ item, suppliers, manager, onClose, onChanged }: {
                   </table>
                 </div>
               </div>
+
+              <MeasureSection item={item} items={items} suppliers={suppliers} manager={manager} onOpenItem={onOpenItem} onChanged={onChanged} />
 
               {item.proposals?.length ? (
                 <div>

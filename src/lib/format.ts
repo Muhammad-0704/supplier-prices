@@ -56,3 +56,9 @@ export function syncLabel(iso: string | null, now = Date.now()): string {
   const when = d === day(now) ? 'сегодня' : d === day(now - 86_400_000) ? 'вчера' : longDate(iso);
   return `Синхронизировано с 1С ${when} в ${time(iso)}`;
 }
+
+/** Рубли с копейками для маленьких сумм: цена за штуку из упаковки в 2500 шт */
+export function rubFine(v: number): string {
+  if (Math.abs(v) >= 100) return rub(v);
+  return `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(v)} ₽`;
+}

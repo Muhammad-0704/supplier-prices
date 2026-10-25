@@ -49,6 +49,7 @@ export function deriveItem(input: DeriveInput, opts: { now: number; rareDays: nu
     category: input.category,
     offers: offers.sort((a, b) => Number(a.stale) - Number(b.stale) || a.price - b.price),
     bestSupplierId: best.supplierId,
+    bestPrice: best.price,
     currentSupplierId: current.supplierId,
     agoAny,
     rare: agoAny > opts.rareDays,

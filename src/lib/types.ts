@@ -1,3 +1,6 @@
+import type { CheaperAlt } from './compare';
+import type { Measure } from './measure';
+
 export type Role = 'manager' | 'staff';
 
 export interface Supplier {
@@ -32,7 +35,13 @@ export interface BoardItem {
   category: string;
   offers: DerivedOffer[];
   bestSupplierId: string;
+  /** Лучшая актуальная цена за единицу товара */
+  bestPrice: number;
   currentSupplierId: string;
+  /** Фасовка: сколько кг / л / шт в единице товара. null — сравнивать за кг нельзя */
+  measure?: Measure | null;
+  /** Почти такой же товар в другой фасовке заметно дешевле за кг */
+  cheaperAlt?: CheaperAlt | null;
   /** Дней с последней закупки у любого поставщика */
   agoAny: number;
   rare: boolean;
