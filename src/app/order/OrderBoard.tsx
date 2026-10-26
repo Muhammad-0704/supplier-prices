@@ -18,7 +18,7 @@ const STATUS = {
   ok: { tone: 'neutral', text: 'хватает' },
 } as const;
 
-export function OrderBoard({ rows, suppliers }: { rows: OrderRow[]; suppliers: Record<string, string> }) {
+export function OrderBoard({ rows, suppliers, skipped = [], manager = false }: { rows: OrderRow[]; suppliers: Record<string, string>; skipped?: string[]; manager?: boolean }) {
   const router = useRouter();
   const [view, setView] = useState<View>('now');
   const [group, setGroup] = useState<Group>('best');
@@ -85,6 +85,11 @@ export function OrderBoard({ rows, suppliers }: { rows: OrderRow[]; suppliers: R
         <p className="muted order-sub">
           По ритму ваших закупок за полгода, остатки 1С не используются. «Проверить» — товар не брали заметно дольше обычного. Впишите факт со склада, и расчёт пойдёт по нему.
         </p>
+        {skipped.length > 0 && (
+          <p className="muted order-sub">
+            Не участвуют в заявке: {skipped.join(', ')}.{manager && <> <a href="/settings?tab=request" className="link link--muted">Изменить</a></>}
+          </p>
+        )}
       </section>
 
       <div className="bar">

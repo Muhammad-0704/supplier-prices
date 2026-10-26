@@ -23,6 +23,8 @@ export interface OrderRow {
 export interface OrderData {
   rows: OrderRow[];
   suppliers: Record<string, string>;
+  /** Поставщики вне заявки (названия, без повторов) */
+  skipped: string[];
 }
 
 async function all<T>(q: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
@@ -40,11 +42,11 @@ async function all<T>(q: (from: number, to: number) => PromiseLike<{ data: T[] |
 export async function loadOrder(db: SupabaseClient, now = Date.now()): Promise<OrderData> {
   const since = new Date(now - RHYTHM_WINDOW_DAYS * DAY).toISOString();
   type ItemR = { id: string; name: string; unit: string; category: string; merged_into: string | null };
-  type PurR = { item_id: string; doc_date: string; qty: number; operation: string | null };
+  type PurR = { item_id: string; supplier_id: string; doc_date: string; qty: number; operation: string | null };
   type OfferR = { item_id: string; supplier_id: string; last_price: number; prev_price: number | null; last_date: string };
-  const [items, purchases, offers, hidden, counts, marks, suppliers, priceOvs] = await Promise.all([
+  const [items, purchases, offers, hidden, counts, marks, suppliers, priceOvs, skipped] = await Promise.all([
     all<ItemR>((f, t) => db.from('items').select('id, name, unit, category, merged_into').range(f, t)),
-    all<PurR>((f, t) => db.from('purchases').select('item_id, doc_date, qty, operation')
+    all<PurR>((f, t) => db.from('purchases').select('item_id, supplier_id, doc_date, qty, operation')
       .or('operation.is.null,operation.eq.ПоступлениеОтПоставщика').gte('doc_date', since).order('id').range(f, t)),
     all<OfferR>((f, t) => db.from('offer_prices').select('item_id, supplier_id, last_price, prev_price, last_date').range(f, t)),
     all<{ item_id: string }>((f, t) => db.from('item_flags').select('item_id').eq('hidden', true).range(f, t)),
@@ -53,12 +55,16 @@ export async function loadOrder(db: SupabaseClient, now = Date.now()): Promise<O
     all<{ item_id: string; status: 'ordered' | 'snoozed'; until: string | null; marked_at: string }>((f, t) => db.from('reorder_marks').select('item_id, status, until, marked_at').range(f, t)),
     all<{ id: string; name: string }>((f, t) => db.from('suppliers').select('id, name').range(f, t)),
     all<PriceOverride>((f, t) => db.from('price_overrides').select('item_id, supplier_id, kind, price, note, set_at, set_by_name').range(f, t)),
+    all<{ supplier_id: string }>((f, t) => db.from('supplier_flags').select('supplier_id').eq('skip_request', true).range(f, t)),
   ]);
+  // Поставщики вне заявки: их закупки не участвуют в ритме, их цены — в выборе «где дешевле»
+  const skip = new Set(skipped.map((s) => s.supplier_id));
   const priceOv = new Map(priceOvs.map((o) => [`${o.item_id}:${o.supplier_id}`, o]));
 
   const canon = new Map(items.map((i) => [i.id, i.merged_into ?? i.id]));
   const events = new Map<string, PurchaseEvent[]>();
   for (const p of purchases) {
+    if (skip.has(p.supplier_id)) continue;
     const id = canon.get(p.item_id) ?? p.item_id;
     const list = events.get(id) ?? [];
     list.push({ date: p.doc_date, qty: Number(p.qty) });
@@ -68,7 +74,7 @@ export async function loadOrder(db: SupabaseClient, now = Date.now()): Promise<O
   for (const c of counts) if (!lastCount.has(c.item_id)) lastCount.set(c.item_id, { qty: Number(c.qty), at: c.counted_at });
   const markBy = new Map<string, ReorderMark>(marks.map((m) => [m.item_id, { status: m.status, until: m.until, at: m.marked_at }]));
   const offersBy = new Map<string, OfferR[]>();
-  for (const o of offers) { const l = offersBy.get(o.item_id) ?? []; l.push(o); offersBy.set(o.item_id, l); }
+  for (const o of offers) { if (skip.has(o.supplier_id)) continue; const l = offersBy.get(o.item_id) ?? []; l.push(o); offersBy.set(o.item_id, l); }
   const hiddenSet = new Set(hidden.map((h) => h.item_id));
 
   const rows: OrderRow[] = [];
@@ -93,5 +99,6 @@ export async function loadOrder(db: SupabaseClient, now = Date.now()): Promise<O
       currentSupplierId: d.currentSupplierId, currentPrice: price(d.currentSupplierId),
     });
   }
-  return { rows, suppliers: Object.fromEntries(suppliers.map((s) => [s.id, s.name])) };
+  const names = Object.fromEntries(suppliers.map((s) => [s.id, s.name]));
+  return { rows, suppliers: names, skipped: [...new Set([...skip].map((id) => names[id]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru')) };
 }

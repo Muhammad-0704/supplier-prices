@@ -299,3 +299,5 @@ button { font: inherit; }
 .confirm summary::-webkit-details-marker { display: none; }
 .confirm form { margin-top: 6px; }
 .settings .tabs { margin-bottom: 0; }
+.skip-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+.skip-row:first-child { border-top: 1px solid var(--line-soft); }

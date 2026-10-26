@@ -19,7 +19,7 @@ export default async function OrderPage() {
   return (
     <main className="page">
       <Header role={role} userName={me.full_name || ''} current="order" />
-      <OrderBoard rows={data.rows} suppliers={data.suppliers} />
+      <OrderBoard rows={data.rows} suppliers={data.suppliers} skipped={data.skipped} manager={role === 'manager'} />
     </main>
   );
 }

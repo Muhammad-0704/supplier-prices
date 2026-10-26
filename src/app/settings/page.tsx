@@ -15,13 +15,16 @@ import { PasswordForm } from './PasswordForm';
 import { RoleSelect } from './RoleSelect';
 import { TelegramConnect } from './TelegramConnect';
 import { removeMember } from './team-actions';
+import { setSkipRequest } from './request-actions';
+import { SkipSupplierForm } from './SkipSupplierForm';
 
 export const dynamic = 'force-dynamic';
 
-type Tab = 'profile' | 'team' | 'notify' | 'onec';
+type Tab = 'profile' | 'team' | 'request' | 'notify' | 'onec';
 const TABS: { id: Tab; label: string; manager: boolean }[] = [
   { id: 'profile', label: 'Профиль', manager: false },
   { id: 'team', label: 'Команда', manager: true },
+  { id: 'request', label: 'Заявка', manager: true },
   { id: 'notify', label: 'Уведомления', manager: true },
   { id: 'onec', label: '1С', manager: true },
 ];
@@ -47,6 +50,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
       <div className="settings">
         {tab === 'profile' && <ProfileTab name={me.full_name || ''} email={user.email ?? ''} role={role} />}
         {tab === 'team' && <TeamTab meId={user.id} />}
+        {tab === 'request' && <RequestTab />}
         {tab === 'notify' && <NotifyTab />}
         {tab === 'onec' && <OnecTab />}
       </div>
@@ -122,7 +126,51 @@ async function NotifyTab() {
     <>
       <TelegramConnect configured={telegramConfigured()} connected={!!chatId} />
       <AlertSettings up={Math.round(th.up * 100)} down={Math.round(th.down * 100)} connected={connected} />
-      <OrderDigestCard connected={connected} />
+    </>
+  );
+}
+
+async function RequestTab() {
+  const db = createClient();
+  const [{ data: flags }, { data: sups }, { data: usage }, chatId] = await Promise.all([
+    db.from('supplier_flags').select('supplier_id, note, updated_at').eq('skip_request', true),
+    db.from('suppliers').select('id, name'),
+    db.from('supplier_usage').select('supplier_id, docs_90d'),
+    getChatId(db),
+  ]);
+  const name = new Map((sups ?? []).map((s) => [s.id, s.name]));
+  const docs = new Map((usage ?? []).map((u) => [u.supplier_id, Number(u.docs_90d)]));
+  const skipped = new Set((flags ?? []).map((f) => f.supplier_id));
+  const candidates = (sups ?? []).filter((s) => !skipped.has(s.id) && docs.has(s.id))
+    .map((s) => ({ id: s.id, name: s.name, docs: docs.get(s.id) ?? 0 }))
+    .sort((a, b) => b.docs - a.docs || a.name.localeCompare(b.name, 'ru'));
+  return (
+    <>
+      <section className="card-box">
+        <h2>Поставщики вне заявки</h2>
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          Их закупки не учитываются при расчёте, что пора заказать, и они не предлагаются как «где дешевле». На доске цен они остаются.
+        </p>
+        {flags?.length ? (
+          <div>
+            {flags.map((f) => (
+              <div key={f.supplier_id} className="skip-row">
+                <div>
+                  <b>{name.get(f.supplier_id) ?? 'Поставщик'}</b>
+                  {f.note && <div className="muted" style={{ fontSize: 13 }}>{f.note}</div>}
+                </div>
+                <form action={setSkipRequest}>
+                  <input type="hidden" name="supplier_id" value={f.supplier_id} />
+                  <input type="hidden" name="skip" value="false" />
+                  <button className="pb-btn pb-btn--sm" type="submit">Вернуть в заявку</button>
+                </form>
+              </div>
+            ))}
+          </div>
+        ) : <p className="muted" style={{ margin: 0 }}>Все поставщики участвуют в заявке.</p>}
+        <SkipSupplierForm suppliers={candidates} />
+      </section>
+      <OrderDigestCard connected={telegramConfigured() && !!chatId} />
     </>
   );
 }
