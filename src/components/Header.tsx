@@ -14,9 +14,11 @@ export async function Header({ role, userName, current, children }: { role: Role
   return (
     <header className="top">
       <div className="brand">
-        <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+        <Link href="/" className="brand__home" aria-label="На главную" tabIndex={-1}>
+          <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+        </Link>
         <div>
-          <h1>Прайс-доска</h1>
+          <Link href="/" className="brand__home"><h1>Прайс-доска</h1></Link>
           <div className="brand__sub">
             {userName} <Badge tone="role">{role === 'manager' ? 'руководитель' : 'сотрудник'}</Badge>
           </div>

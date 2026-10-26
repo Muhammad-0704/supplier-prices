@@ -308,7 +308,7 @@ function Matrix(props: {
   } else body = list.map(row);
 
   return (
-    <div className={`board${compact ? ' compact' : ''}`}>
+    <MatrixScroller compact={compact}>
       <table className="mx">
         <thead>
           <tr>
@@ -326,6 +326,61 @@ function Matrix(props: {
           {props.rareHidden > 0 && <RareNote asCell cols={cols} n={props.rareHidden} days={props.rareDays} onShowAll={props.onShowAll} />}
         </tbody>
       </table>
+    </MatrixScroller>
+  );
+}
+
+/**
+ * Прокрутка матрицы вбок: полоса над таблицей (видна всегда, без поиска нижней) и кнопки ‹ ›.
+ * Нижняя полоса тоже работает; Shift + колесо мыши — тоже.
+ */
+function MatrixScroller({ compact, children }: { compact: boolean; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const syncing = useRef(false);
+  const [size, setSize] = useState({ scroll: 0, client: 0 });
+  const [edge, setEdge] = useState({ left: true, right: false });
+
+  const update = useCallback(() => {
+    const b = box.current;
+    if (!b) return;
+    setSize({ scroll: b.scrollWidth, client: b.clientWidth });
+    setEdge({ left: b.scrollLeft <= 1, right: b.scrollLeft + b.clientWidth >= b.scrollWidth - 1 });
+  }, []);
+
+  useEffect(() => {
+    const b = box.current;
+    if (!b) return;
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(b);
+    if (b.firstElementChild) ro.observe(b.firstElementChild);
+    return () => ro.disconnect();
+  }, [update]);
+
+  const follow = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
+    if (!from || !to) return;
+    if (syncing.current) { syncing.current = false; return; }
+    syncing.current = true;
+    to.scrollLeft = from.scrollLeft;
+  };
+  const step = (dir: 1 | -1) => box.current?.scrollBy({ left: dir * Math.max(300, (box.current.clientWidth - 280) * 0.8), behavior: 'smooth' });
+  const overflow = size.scroll > size.client + 1;
+
+  return (
+    <div className="mx-wrap">
+      {overflow && (
+        <div className="mx-hscroll">
+          <button type="button" className="mx-hscroll__btn" aria-label="Поставщики левее" disabled={edge.left} onClick={() => step(-1)}>‹</button>
+          <div className="mx-hscroll__bar" ref={bar} onScroll={() => follow(bar.current, box.current)} aria-hidden="true">
+            <div style={{ width: size.scroll, height: 1 }} />
+          </div>
+          <button type="button" className="mx-hscroll__btn" aria-label="Поставщики правее" disabled={edge.right} onClick={() => step(1)}>›</button>
+        </div>
+      )}
+      <div className={`board${compact ? ' compact' : ''}`} ref={box} onScroll={() => { follow(box.current, bar.current); update(); }}>
+        {children}
+      </div>
     </div>
   );
 }

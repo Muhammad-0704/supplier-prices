@@ -317,3 +317,20 @@ button { font: inherit; }
 :root { --scroll-thumb: rgba(27, 30, 33, .22); --scroll-thumb-hover: rgba(27, 30, 33, .42); }
 :root[data-theme="dark"] { --scroll-thumb: rgba(236, 237, 234, .22); --scroll-thumb-hover: rgba(236, 237, 234, .42); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --scroll-thumb: rgba(236, 237, 234, .22); --scroll-thumb-hover: rgba(236, 237, 234, .42); } }
+.brand__home { text-decoration: none; color: inherit; display: inline-flex; }
+.brand__home:hover h1 { opacity: .8; }
+
+/* Поле с выпадающим списком в форме: список не растягивается по высоте */
+.field > .pk { flex: none; width: 100%; }
+
+/* Матрица: таблица по высоте экрана, сверху своя полоса прокрутки вбок */
+.mx-wrap { display: flex; flex-direction: column; gap: 6px; }
+.board { max-height: calc(100vh - 96px); max-height: calc(100dvh - 96px); }
+.mx-hscroll { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 6px; padding: 6px 0; background: var(--paper); }
+.mx-hscroll__bar { flex: 1 1 auto; overflow-x: auto; overflow-y: hidden; height: 14px; }
+.mx-hscroll__btn { flex: none; width: 30px; height: 26px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); font-size: 18px; line-height: 1; cursor: pointer; }
+.mx-hscroll__btn:hover:not(:disabled) { background: var(--surface-hover); }
+.mx-hscroll__btn:disabled { opacity: .35; cursor: default; }
+/* Полоса сверху заметнее обычной: это основной способ листать поставщиков */
+.mx-hscroll__bar::-webkit-scrollbar { height: 12px; }
+.mx-hscroll__bar::-webkit-scrollbar-thumb { background: var(--scroll-thumb-hover); border: 2px solid transparent; background-clip: padding-box; }
