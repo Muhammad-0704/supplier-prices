@@ -126,29 +126,30 @@ export function canEditDay(day: string, manager: boolean, now = Date.now()): boo
 
 /** Наценка склада на закупочную цену */
 export const MARKUP = 0.1;
-/** Округление в «Установке цен»: до рубля */
-export const ROUNDING = 1;
+/**
+ * Допуск на округление: в «Установке цен» цены с копейками (1 697,50), в расходных их округляют
+ * до рубля или до пятёрки (1 700). Разница до 1 ₽ или до 0,5% цены — не расхождение.
+ */
+export const tolerance = (price: number) => Math.max(1, Math.abs(price) * 0.005);
 
 export type MarkupIssue = 'ok' | 'no_cost' | 'below_cost' | 'manual' | 'low' | 'high';
 
 export interface CostLine { price: number; qty: number; cost: number | null; set_price: number | null }
 
 /**
- * Проверка строки расходной:
+ * Проверка строки расходной против «последняя закупка + 10%»:
+ *  ok         — цена расходной сходится с «закупка + 10%» с учётом округления (даже если в установке цен старая цена);
  *  below_cost — продали дешевле последней закупки;
- *  manual     — цена в накладной не совпадает с установленной (поправили руками);
- *  low / high — установленная цена отстаёт от «последняя закупка + 10%» больше чем на округление
- *               (после подорожания или подешевления цену не переустановили).
+ *  manual     — цена не сходится и в накладной стоит не установленная цена (поставили руками);
+ *  low / high — накладная выписана по установленной цене, но установка устарела: закупка подорожала / подешевела.
  */
 export function markupIssue(l: CostLine): MarkupIssue {
   if (l.cost == null || l.cost <= 0) return 'no_cost';
   if (l.price < l.cost - 0.005) return 'below_cost';
-  if (l.set_price != null && Math.abs(l.price - l.set_price) > 0.01) return 'manual';
   const expected = l.cost * (1 + MARKUP);
-  const base = l.set_price ?? l.price;
-  if (base < expected - ROUNDING) return 'low';
-  if (base > expected + ROUNDING) return 'high';
-  return 'ok';
+  if (Math.abs(l.price - expected) <= tolerance(expected)) return 'ok';
+  if (l.set_price != null && Math.abs(l.price - l.set_price) > tolerance(l.set_price)) return 'manual';
+  return l.price < expected ? 'low' : 'high';
 }
 
 /** Ожидаемая цена: последняя закупка + 10% */
