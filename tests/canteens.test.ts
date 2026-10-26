@@ -101,9 +101,11 @@ describe('расходные накладные из 1С', () => {
 
 describe('столовые: наценка склада', async () => {
   const { markupIssue, markupGap, markupRate, realCost } = await import('../src/lib/canteens');
-  it('по установленной цене и «закупка + 10%»', () => {
+  it('по «закупка + 10%» с допуском на округление', () => {
     expect(markupIssue({ price: 110, qty: 1, cost: 100, set_price: 110 })).toBe('ok');
-    expect(markupIssue({ price: 111, qty: 1, cost: 100.5, set_price: 111 })).toBe('ok'); // округление до рубля
+    expect(markupIssue({ price: 1700, qty: 1, cost: 1543.18, set_price: 1697.5 })).toBe('ok'); // округлили до 1 700
+    expect(markupIssue({ price: 65, qty: 1, cost: 58.64, set_price: 64.5 })).toBe('ok');
+    expect(markupIssue({ price: 110, qty: 1, cost: 100, set_price: 99 })).toBe('ok'); // установка устарела, но цена верная
     expect(markupIssue({ price: 95, qty: 1, cost: 100, set_price: 110 })).toBe('below_cost');
     expect(markupIssue({ price: 120, qty: 1, cost: 100, set_price: 110 })).toBe('manual');
     expect(markupIssue({ price: 105, qty: 1, cost: 100, set_price: 105 })).toBe('low');

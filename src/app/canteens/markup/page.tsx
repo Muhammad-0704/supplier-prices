@@ -12,9 +12,9 @@ export const dynamic = 'force-dynamic';
 
 const ISSUE: Record<Exclude<MarkupIssue, 'ok' | 'no_cost'>, { title: string; hint: string }> = {
   below_cost: { title: 'Дешевле закупки', hint: 'Цена в расходной ниже последней закупочной' },
-  manual: { title: 'Цену поправили вручную', hint: 'Цена в расходной не совпадает с установленной в «Установке цен»' },
-  low: { title: 'Цену не подняли', hint: 'Закупка подорожала, а установленная цена ниже «закупка + 10%»' },
-  high: { title: 'Цену не снизили', hint: 'Закупка подешевела, а установленная цена выше «закупка + 10%»' },
+  manual: { title: 'Цена не по установке', hint: 'Цена в расходной не равна «закупка + 10%» и не совпадает с установленной в «Установке цен» — поставили вручную' },
+  low: { title: 'Цену не подняли', hint: 'Расходная выписана по установленной цене, но закупка подорожала и цена ниже «закупка + 10%»' },
+  high: { title: 'Цену не снизили', hint: 'Расходная выписана по установленной цене, но закупка подешевела и цена выше «закупка + 10%»' },
 };
 const ORDER: (keyof typeof ISSUE)[] = ['below_cost', 'low', 'manual', 'high'];
 const pctFmt = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
@@ -40,7 +40,7 @@ export default async function MarkupPage({ searchParams }: { searchParams: { mon
     t.amount += r.amount;
     if (r.cost != null) { t.costed += r.amount; t.cost += r.cost * r.qty; }
     if (r.issue !== 'ok' && r.issue !== 'no_cost') t.issues += 1;
-    if (r.issue === 'below_cost' || r.issue === 'low' || r.issue === 'manual') t.gap += r.gap;
+    if (r.issue !== 'ok' && r.issue !== 'no_cost') t.gap += r.gap;
     per.set(r.canteen_id, t);
   }
   const all = [...per.values()].reduce((a, t) => ({ amount: a.amount + t.amount, costed: a.costed + t.costed, cost: a.cost + t.cost, issues: a.issues + t.issues, gap: a.gap + t.gap }), { amount: 0, costed: 0, cost: 0, issues: 0, gap: 0 });
@@ -66,7 +66,7 @@ export default async function MarkupPage({ searchParams }: { searchParams: { mon
           <h2>Наценка склада</h2>
           <MonthNav month={month} base={only ? `/canteens/markup?c=${only}` : '/canteens/markup'} />
         </div>
-        <p className="muted cn-foot">Цена в расходной должна равняться последней закупке + 10% с округлением до рубля по «Установке цен». Закупочные цены видит только руководитель.</p>
+        <p className="muted cn-foot">Цена в расходной должна равняться последней закупке + 10%; округление до 1 ₽ или 0,5% цены не считается расхождением. Закупочные цены видит только руководитель.</p>
         <div className="cn-scroll">
           <table className="cn-table">
             <thead>
