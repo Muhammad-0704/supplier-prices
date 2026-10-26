@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Прайс-доска',
-  description: 'Закупочные цены поставщиков из 1С:Фреш',
+  title: { default: 'База', template: '%s · База' },
+  description: 'Сервисы склада: прайс-доска и столовые',
 };
 
 export const viewport: Viewport = {

@@ -138,7 +138,7 @@ export const mockFetcher: Fetcher = async (url) => {
     entity === 'Catalog_Контрагенты' ? b.suppliers :
     entity === 'Document_ПриходнаяНакладная' ? b.receipts :
     entity === 'Document_ПриходнаяНакладная_Запасы' ? b.receipts.flatMap((d) => (d.Запасы as ODataRow[]).map((l) => ({ Ref_Key: d.Ref_Key, ...l }))) : [];
-  if (!rows.length && !entity.startsWith('Document_ПриходнаяНакладная')) {
+  if (!rows.length && !entity.startsWith('Document_')) {
     return new Response('Not found', { status: 404 });
   }
   const filter = u.searchParams.get('$filter') || '';

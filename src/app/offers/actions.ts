@@ -84,7 +84,7 @@ export async function setLineStatus(form: FormData) {
   if (!ids.length) return;
   await db.from('offer_lines').update({ status, reviewed_by: user.id, reviewed_at: new Date().toISOString() }).in('id', ids);
   revalidatePath('/offers');
-  revalidatePath('/');
+  revalidatePath('/price');
 }
 
 export interface ImportLine { itemId: string | null; name: string; unit: string | null; price: number; note: string | null }
@@ -148,7 +148,7 @@ export async function importPriceList(payload: { supplierId: string | null; comp
       }
     }
     revalidatePath('/offers');
-    revalidatePath('/');
+    revalidatePath('/price');
     const matched = lines.filter((l) => l.item_id).length;
     return { ok: `Прайс «${company}» сохранён: ${lines.length} строк, из них с нашими товарами ${matched}.` };
   } catch (e) {
