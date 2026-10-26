@@ -56,3 +56,33 @@ export async function notify(db: SupabaseClient, text: string): Promise<void> {
 }
 
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Отправка в конкретный чат (личный чат админа точки). Ошибка не роняет рассылку остальным. */
+export async function sendTo(chatId: string, text: string): Promise<boolean> {
+  try {
+    await call('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true });
+    return true;
+  } catch (e) {
+    console.log('[telegram]', chatId, (e as Error).message);
+    return false;
+  }
+}
+
+/** Имя бота для ссылки t.me/<бот>?start=<код> */
+export async function botUsername(): Promise<string | null> {
+  try {
+    const me = await call<{ username?: string }>('getMe');
+    return me.username ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ищет среди недавних сообщений боту «/start <код>» и возвращает чат, откуда оно пришло. */
+export async function findStartCode(code: string): Promise<{ chatId: string; name: string } | null> {
+  type Update = { message?: { chat: { id: number; first_name?: string; title?: string }; text?: string } };
+  const updates = await call<Update[]>('getUpdates', { limit: 100, allowed_updates: ['message'] });
+  const hit = [...updates].reverse().find((u) => u.message?.text?.trim() === `/start ${code}`);
+  if (!hit?.message) return null;
+  return { chatId: String(hit.message.chat.id), name: hit.message.chat.first_name || hit.message.chat.title || '' };
+}

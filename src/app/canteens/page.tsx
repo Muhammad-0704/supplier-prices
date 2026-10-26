@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { CanteenHeader } from '@/components/canteens/CanteenHeader';
+import { CompareBars } from '@/components/canteens/Charts';
 import { MonthNav } from '@/components/canteens/MonthNav';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { requireCanteens } from '@/lib/access';
@@ -134,6 +135,18 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
               {withCost && ' По закупочным — по последней закупке до даты отгрузки; эти колонки видит только руководитель.'} Мясо добавится следующим шагом.
             </p>
           </section>
+
+          {canteens.length > 1 && all.revenue > 0 && (
+            <section className="card-box">
+              <h2>Сравнение точек</h2>
+              <CompareBars realLabel={withCost} rows={canteens.map((c) => {
+                const t = totals.get(c.id)!;
+                const cost = withCost ? costOf(c.id, t.shipped) : null;
+                return { name: c.name, foodcost: t.foodcost, real: cost != null && t.revenue > 0 ? cost / t.revenue : null, revenue: t.revenue };
+              }).sort((a, b) => (b.foodcost ?? -1) - (a.foodcost ?? -1))} />
+              <p className="muted cn-foot">Полоса — фудкост по расходным{withCost ? ', тёмная линия — реальный фудкост по закупочным' : ''}. Справа выручка за месяц.</p>
+            </section>
+          )}
         </>
       )}
     </main>
