@@ -20,7 +20,7 @@ const STATUS = { new: { tone: 'role', text: 'новое' }, accepted: { tone: 'b
 
 function origin() {
   // Ссылки строим от адреса сайта; на Vercel он стабилен
-  return process.env.NEXT_PUBLIC_SITE_URL || 'https://supplier-prices-ashy.vercel.app';
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://pricedoska.vercel.app';
 }
 
 export default async function OffersPage({ searchParams }: { searchParams: { tab?: string; view?: string } }) {

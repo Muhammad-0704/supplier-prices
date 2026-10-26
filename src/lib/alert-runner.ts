@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { DEFAULT_THRESHOLDS, detectAlerts, formatAlerts, type PriceRow, type Thresholds } from './alerts';
 import { notify } from './telegram';
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://supplier-prices-ashy.vercel.app';
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://pricedoska.vercel.app';
 /** Сигналы только по свежим закупкам: правки старых накладных не должны будить ночью */
 const FRESH_DAYS = 3;
 
