@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SITE_URL } from '@/lib/alert-runner';
 import { mskDay, mskMonth, summarize } from '@/lib/canteens';
-import { customerMap, loadCanteens, loadReports, loadShipments } from '@/lib/canteens-data';
+import { customerMap, loadCanteens, loadIiko, loadReports, loadShipments } from '@/lib/canteens-data';
 import { chatKey, reminderText, summaryText } from '@/lib/canteens-notify';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notify, sendTo, telegramConfigured } from '@/lib/telegram';
@@ -55,8 +55,8 @@ export async function GET(request: NextRequest) {
   if (kind === 'summary') {
     const yesterday = mskDay(Date.now() - 86_400_000);
     const month = yesterday.slice(0, 7);
-    const [shipments, reports] = await Promise.all([loadShipments(db, canteens, month), loadReports(db, canteens, month)]);
-    const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports);
+    const [shipments, reports, iiko] = await Promise.all([loadShipments(db, canteens, month), loadReports(db, canteens, month), loadIiko(db, canteens, month)]);
+    const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports, iiko);
     await notify(db, summaryText(yesterday, canteens, totals, SITE_URL));
     return NextResponse.json({ ok: true, message: `Сводка за ${yesterday} отправлена.`, month: month === mskMonth() ? 'current' : 'previous' });
   }

@@ -7,9 +7,9 @@ import { ReportForm, type ReportValue } from '@/components/canteens/ReportForm';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { TelegramLink } from '@/components/canteens/TelegramLink';
 import { requireCanteens } from '@/lib/access';
-import { dayTitle, isMonth, markupRate, monthRange, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
+import { dayTitle, isMonth, markupRate, monthRange, mskDay, mskMonth, realCost, reportMismatch, summarize } from '@/lib/canteens';
 import { chatKey } from '@/lib/canteens-notify';
-import { costTotals, customerMap, loadCanteens, loadCostSummary, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
+import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
 import { num, rubFine } from '@/lib/format';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -34,18 +34,19 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
   const today = mskDay(now);
   const yesterday = mskDay(now - 86_400_000);
 
-  const [lines, reports, recent, sync, costRows] = await Promise.all([
+  const [lines, reports, recent, sync, costRows, iiko] = await Promise.all([
     loadShipments(db, [canteen], month, true),
     loadReports(db, [canteen], month),
     db.from('daily_reports').select('report_date, cash, card, meat').eq('canteen_id', canteen.id).gte('report_date', yesterday),
     loadSyncState(db),
     manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
+    loadIiko(db, [canteen], month),
   ]);
   const cc = costTotals(costRows.filter((r) => r.canteen_id === canteen.id)).get(canteen.id);
   const tgLinked = !manager && telegramConfigured()
     ? !!(await createAdminClient().from('app_settings').select('key').eq('key', chatKey(me.userId)).maybeSingle()).data
     : false;
-  const t = summarize([canteen.id], customerMap([canteen]), lines, reports).get(canteen.id)!;
+  const t = summarize([canteen.id], customerMap([canteen]), lines, reports, iiko).get(canteen.id)!;
 
   const formReports: Record<string, ReportValue> = {};
   for (const r of [...reports, ...(recent.data ?? [])]) formReports[r.report_date] = { cash: Number(r.cash), card: Number(r.card), meat: Number(r.meat ?? 0) };
@@ -102,7 +103,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
 
         {days.length > 0 && <DayChart days={monthRange(month).days.filter((d) => d <= today).map((d) => {
           const x = t.byDay.get(d);
-          return { day: d, revenue: x?.revenue ?? 0, shipped: (x?.shipped ?? 0) + (x?.meat ?? 0), reported: !!x?.reported };
+          return { day: d, revenue: x?.revenue ?? 0, shipped: (x?.shipped ?? 0) + (x?.meat ?? 0), hasRevenue: !!x?.hasRevenue };
         })} />}
 
         {!canteen.customerIds.length && <div className="notice">Точка не привязана к покупателю в 1С — закупки не видны. {manager ? 'Привяжите в «Доступах».' : 'Скажите руководителю.'}</div>}
@@ -122,10 +123,13 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
                   <span>{dayTitle(d)}{d === today && <span className="muted"> · сегодня</span>}{!x.reported && d <= today && <span className="cn-miss" title="Отчёт не сдан"> нет отчёта</span>}</span>
                   <span className="r num">{x.shipped ? num(x.shipped) : '—'}</span>
                   <span className="r num">{x.reported && x.meat ? num(x.meat) : '—'}</span>
-                  <span className="r num">{x.reported ? num(x.cash) : '—'}</span>
-                  <span className="r num">{x.reported ? num(x.card) : '—'}</span>
-                  <span className="r num">{x.reported ? num(x.revenue) : '—'}</span>
-                  <span className="r num">{x.reported && x.revenue > 0 ? fc((x.shipped + x.meat) / x.revenue) : '—'}</span>
+                  <span className="r num">{x.hasRevenue ? num(x.cash) : '—'}</span>
+                  <span className="r num">{x.hasRevenue ? num(x.card) : '—'}</span>
+                  <span className="r num" title={x.source === 'iiko' ? `Из iiko${x.checks ? `, чеков: ${x.checks}` : ''}` : x.source === 'report' ? 'Из отчёта админа' : undefined}>
+                    {x.hasRevenue ? num(x.revenue) : '—'}{x.source === 'iiko' && <span className="cn-src">iiko</span>}
+                    {reportMismatch(x) != null && <span className="cn-mismatch" title={`В отчёте админа ${num(x.reportCash + x.reportCard)} ₽ (нал ${num(x.reportCash)}, безнал ${num(x.reportCard)})`}>отчёт {reportMismatch(x)! > 0 ? '+' : ''}{num(reportMismatch(x)!)}</span>}
+                  </span>
+                  <span className="r num">{x.hasRevenue && x.revenue > 0 ? fc((x.shipped + x.meat) / x.revenue) : '—'}</span>
                 </>
               );
               if (!docs) return <div key={d} className="cn-day">{row}</div>;

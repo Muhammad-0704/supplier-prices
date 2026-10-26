@@ -75,12 +75,12 @@ export function buildMonthWorkbook(
     const data: Cell[][] = [[text(`${c.name} · ${monthTitle(month)}`, true)], [], h.map(head)];
     for (const d of days) {
       const x = t.byDay.get(d);
-      const row: Cell[] = [text(dayTitle(d)), money(x?.shipped || null), x?.reported && x.meat ? money(x.meat) : null, x?.reported ? money(x.cash) : null, x?.reported ? money(x.card) : null, x?.reported ? money(x.revenue) : null,
-        pct(x?.reported && x.revenue > 0 ? (x.shipped + x.meat) / x.revenue : null)];
+      const row: Cell[] = [text(dayTitle(d)), money(x?.shipped || null), x?.reported && x.meat ? money(x.meat) : null, x?.hasRevenue ? money(x.cash) : null, x?.hasRevenue ? money(x.card) : null, x?.hasRevenue ? money(x.revenue) : null,
+        pct(x?.hasRevenue && x.revenue > 0 ? (x.shipped + x.meat) / x.revenue : null)];
       if (withCost) {
         const dc = ci?.byDay.get(d);
         const real = dc && x ? realCost(x.shipped, dc.costed, dc.cost) : null;
-        row.push(money(real), pct(real != null && x?.reported && x.revenue > 0 ? (real + x.meat) / x.revenue : null));
+        row.push(money(real), pct(real != null && x?.hasRevenue && x.revenue > 0 ? (real + x.meat) / x.revenue : null));
       }
       data.push(row);
     }

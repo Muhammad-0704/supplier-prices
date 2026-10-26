@@ -4,7 +4,7 @@ const n0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const short = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1).replace('.', ',')} млн` : v >= 1000 ? `${Math.round(v / 1000)} тыс` : n0.format(v));
 
 /** Выручка и закупки по дням месяца: столбик — выручка, засечка — склад + мясо. */
-export function DayChart({ days }: { days: { day: string; revenue: number; shipped: number; reported: boolean }[] }) {
+export function DayChart({ days }: { days: { day: string; revenue: number; shipped: number; hasRevenue: boolean }[] }) {
   const max = Math.max(1, ...days.map((d) => Math.max(d.revenue, d.shipped)));
   const W = 640, H = 170, top = 10, bottom = 22, left = 4, right = 4;
   const bw = (W - left - right) / days.length;
@@ -18,8 +18,8 @@ export function DayChart({ days }: { days: { day: string; revenue: number; shipp
           const dayNo = Number(d.day.slice(8));
           return (
             <g key={d.day}>
-              <title>{`${dayNo}: выручка ${d.reported ? n0.format(d.revenue) + ' ₽' : 'нет отчёта'}, закупки ${n0.format(d.shipped)} ₽`}</title>
-              {d.reported && d.revenue > 0 && <rect x={x + bw * 0.15} width={bw * 0.7} y={y(d.revenue)} height={H - bottom - y(d.revenue)} rx={2} className="cn-chart__rev" />}
+              <title>{`${dayNo}: выручка ${d.hasRevenue ? n0.format(d.revenue) + ' ₽' : 'нет данных'}, закупки ${n0.format(d.shipped)} ₽`}</title>
+              {d.hasRevenue && d.revenue > 0 && <rect x={x + bw * 0.15} width={bw * 0.7} y={y(d.revenue)} height={H - bottom - y(d.revenue)} rx={2} className="cn-chart__rev" />}
               {d.shipped > 0 && <rect x={x + bw * 0.05} width={bw * 0.9} y={y(d.shipped) - 1.5} height={3} rx={1.5} className="cn-chart__ship" />}
               {(dayNo === 1 || dayNo % 5 === 0) && <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="cn-chart__label">{dayNo}</text>}
             </g>
