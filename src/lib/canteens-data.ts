@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { monthRange, type ReportRow } from './canteens';
+import { monthRange, type IikoRow, type ReportRow } from './canteens';
 
 export interface Canteen { id: string; name: string; customerIds: string[] }
 
@@ -62,9 +62,19 @@ export async function loadReports(db: SupabaseClient, canteens: Canteen[], month
   return (data ?? []).map((r) => ({ ...r, cash: Number(r.cash), card: Number(r.card), meat: Number(r.meat ?? 0) }));
 }
 
-export async function loadSyncState(db: SupabaseClient): Promise<{ at: string; ok: boolean; message: string | null } | null> {
-  const { data } = await db.from('sync_state').select('at, ok, message').eq('key', 'shipments').maybeSingle();
+export async function loadSyncState(db: SupabaseClient, key = 'shipments'): Promise<{ at: string; ok: boolean; message: string | null } | null> {
+  const { data } = await db.from('sync_state').select('at, ok, message').eq('key', key).maybeSingle();
   return data ?? null;
+}
+
+/** Выручка из iiko за месяц по видимым точкам (пусто, если iiko не подключён) */
+export async function loadIiko(db: SupabaseClient, canteens: Canteen[], month: string): Promise<IikoRow[]> {
+  if (!canteens.length) return [];
+  const { days } = monthRange(month);
+  const { data, error } = await db.from('iiko_revenue').select('canteen_id, day, cash, card, total, checks')
+    .in('canteen_id', canteens.map((c) => c.id)).gte('day', days[0]).lte('day', days[days.length - 1]);
+  if (error) return [];
+  return (data ?? []).map((r) => ({ ...r, cash: Number(r.cash), card: Number(r.card), total: Number(r.total), checks: Number(r.checks) }));
 }
 
 // ---------- Себестоимость (только руководитель столовых; остальным база вернёт пусто) ----------

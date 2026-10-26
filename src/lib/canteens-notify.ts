@@ -1,5 +1,5 @@
 /** Telegram для «Столовых»: напоминание админам, кто не сдал отчёт, и утренняя сводка руководителю. */
-import { dayTitle, type CanteenTotals } from './canteens';
+import { dayTitle, reportMismatch, type CanteenTotals } from './canteens';
 
 const n0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const money = (v: number) => `${n0.format(Math.round(v))} ₽`;
@@ -35,15 +35,18 @@ export function summaryText(
     const shipped = d?.shipped ?? 0;
     ship += shipped;
     if (t) { mRev += t.revenue; mBuy += t.shipped + t.meat; }
-    if (!d?.reported) {
-      missing.push(c.name);
+    if (!d?.reported) missing.push(c.name);
+    if (!d?.hasRevenue) {
       lines.push(`${esc(c.name)}: отчёта нет · склад ${money(shipped)}`);
       continue;
     }
     rev += d.revenue;
     meat += d.meat;
-    const meatPart = d.meat ? ` · мясо ${money(d.meat)}` : '';
-    lines.push(`${esc(c.name)}: выручка ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}) · склад ${money(shipped)}${meatPart} · фудкост ${pct(d.revenue > 0 ? (shipped + d.meat) / d.revenue : null)}`);
+    const src = d.source === 'iiko' ? ' iiko' : '';
+    const meatPart = d.meat ? ` · мясо ${money(d.meat)}` : d.reported ? '' : ' · мясо неизвестно (нет отчёта)';
+    const diff = reportMismatch(d);
+    const diffPart = diff != null ? ` · ⚠ в отчёте админа ${diff > 0 ? 'больше' : 'меньше'} на ${money(Math.abs(diff))}` : '';
+    lines.push(`${esc(c.name)}: выручка${src} ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}) · склад ${money(shipped)}${meatPart} · фудкост ${pct(d.revenue > 0 ? (shipped + d.meat) / d.revenue : null)}${diffPart}`);
   }
   lines.push('');
   lines.push(`<b>Всего:</b> выручка ${money(rev)} · склад ${money(ship)} · мясо ${money(meat)}`);

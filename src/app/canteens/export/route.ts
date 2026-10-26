@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import writeXlsxFile from 'write-excel-file/node';
 import { isMonth, mskMonth, summarize } from '@/lib/canteens';
-import { costTotals, customerMap, loadCanteens, loadCostSummary, loadReports, loadShipments } from '@/lib/canteens-data';
+import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments } from '@/lib/canteens-data';
 import { buildMonthWorkbook } from '@/lib/canteens-export';
 import { createClient } from '@/lib/supabase/server';
 
@@ -18,12 +18,13 @@ export async function GET(request: NextRequest) {
   const m = request.nextUrl.searchParams.get('month');
   const month = isMonth(m) ? m : mskMonth();
   const canteens = await loadCanteens(db);
-  const [shipments, reports, costRows] = await Promise.all([
+  const [shipments, reports, costRows, iiko] = await Promise.all([
     loadShipments(db, canteens, month),
     loadReports(db, canteens, month),
     p.canteen_role === 'manager' ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
+    loadIiko(db, canteens, month),
   ]);
-  const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports);
+  const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports, iiko);
   const costs = p.canteen_role === 'manager' ? costTotals(costRows) : null;
   const sheets = buildMonthWorkbook(month, canteens, totals, costs);
 

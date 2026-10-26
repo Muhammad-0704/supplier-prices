@@ -48,12 +48,32 @@ export interface ShipmentRow { customer_id: string; doc_date: string; amount: nu
 /** Ежедневный отчёт точки. meat — сумма мяса за день по накладным мясного магазина (админ пишет сам) */
 export interface ReportRow { canteen_id: string; report_date: string; cash: number; card: number; meat?: number }
 
-/** shipped — со склада по расходным; meat — мясо из отчёта; закупки точки = shipped + meat */
-export interface DayTotals { shipped: number; meat: number; cash: number; card: number; revenue: number; reported: boolean }
-export interface CanteenTotals extends Omit<DayTotals, 'reported'> {
+/** Выручка точки за день из iiko */
+export interface IikoRow { canteen_id: string; day: string; cash: number; card: number; total: number; checks?: number }
+
+/**
+ * Итоги дня. shipped — со склада по расходным; meat — мясо из отчёта; закупки точки = shipped + meat.
+ * cash / card / revenue — из iiko, если по точке за этот день есть данные iiko, иначе из отчёта админа.
+ */
+export interface DayTotals {
+  shipped: number; meat: number; cash: number; card: number; revenue: number;
+  /** Админ сдал отчёт за день */
+  reported: boolean;
+  /** Выручка за день известна (из iiko или из отчёта) */
+  hasRevenue: boolean;
+  /** Откуда выручка */
+  source: 'iiko' | 'report' | null;
+  /** Цифры из отчёта админа — для сверки с iiko */
+  reportCash: number; reportCard: number;
+  checks: number;
+}
+export interface CanteenTotals {
+  shipped: number; meat: number; cash: number; card: number; revenue: number;
   /** Дней с отчётом */
   reports: number;
-  /** Отгружено ÷ выручка; null, если выручки нет */
+  /** Дней с выручкой из iiko */
+  iikoDays: number;
+  /** Закупки ÷ выручка; null, если выручки нет */
   foodcost: number | null;
   byDay: Map<string, DayTotals>;
 }
@@ -65,40 +85,63 @@ export function foodcost(purchases: number, revenue: number): number | null {
   return revenue > 0 ? purchases / revenue : null;
 }
 
+/** Расхождение отчёта админа с iiko больше 1% или 100 ₽ */
+export function reportMismatch(x: DayTotals): number | null {
+  if (x.source !== 'iiko' || !x.reported) return null;
+  const diff = x.reportCash + x.reportCard - x.revenue;
+  return Math.abs(diff) > Math.max(100, x.revenue * 0.01) ? r2(diff) : null;
+}
+
 /**
- * Сводка по точкам: отгружено со склада по расходным, наличные и безнал из отчётов, фудкост.
+ * Сводка по точкам: отгружено со склада по расходным, выручка (iiko или отчёт), мясо из отчётов, фудкост.
  * customerCanteen — какому покупателю 1С какая точка соответствует.
  */
-export function summarize(canteenIds: string[], customerCanteen: Map<string, string>, shipments: ShipmentRow[], reports: ReportRow[]): Map<string, CanteenTotals> {
+export function summarize(canteenIds: string[], customerCanteen: Map<string, string>, shipments: ShipmentRow[], reports: ReportRow[], iiko: IikoRow[] = []): Map<string, CanteenTotals> {
   const out = new Map<string, CanteenTotals>();
   const get = (c: string) => {
     let t = out.get(c);
-    if (!t) { t = { shipped: 0, meat: 0, cash: 0, card: 0, revenue: 0, reports: 0, foodcost: null, byDay: new Map() }; out.set(c, t); }
+    if (!t) { t = { shipped: 0, meat: 0, cash: 0, card: 0, revenue: 0, reports: 0, iikoDays: 0, foodcost: null, byDay: new Map() }; out.set(c, t); }
     return t;
   };
   const day = (t: CanteenTotals, d: string) => {
     let x = t.byDay.get(d);
-    if (!x) { x = { shipped: 0, meat: 0, cash: 0, card: 0, revenue: 0, reported: false }; t.byDay.set(d, x); }
+    if (!x) { x = { shipped: 0, meat: 0, cash: 0, card: 0, revenue: 0, reported: false, hasRevenue: false, source: null, reportCash: 0, reportCard: 0, checks: 0 }; t.byDay.set(d, x); }
     return x;
   };
   canteenIds.forEach(get);
   for (const s of shipments) {
     const c = customerCanteen.get(s.customer_id);
     if (!c || !out.has(c)) continue;
-    const t = get(c);
-    const amount = Number(s.amount) || 0;
-    t.shipped += amount;
-    day(t, mskDay(s.doc_date)).shipped += amount;
+    day(get(c), mskDay(s.doc_date)).shipped += Number(s.amount) || 0;
   }
   for (const r of reports) {
     if (!out.has(r.canteen_id)) continue;
-    const t = get(r.canteen_id);
-    const cash = Number(r.cash) || 0, card = Number(r.card) || 0, meat = Number(r.meat) || 0;
-    t.cash += cash; t.card += card; t.meat += meat; t.revenue += cash + card; t.reports += 1;
-    const x = day(t, r.report_date);
-    x.cash += cash; x.card += card; x.meat += meat; x.revenue += cash + card; x.reported = true;
+    const x = day(get(r.canteen_id), r.report_date);
+    x.reportCash += Number(r.cash) || 0;
+    x.reportCard += Number(r.card) || 0;
+    x.meat += Number(r.meat) || 0;
+    x.reported = true;
+  }
+  for (const i of iiko) {
+    if (!out.has(i.canteen_id)) continue;
+    const x = day(get(i.canteen_id), i.day);
+    x.cash = Number(i.cash) || 0;
+    x.card = Number(i.card) || 0;
+    x.revenue = Number(i.total) || x.cash + x.card;
+    x.checks = Number(i.checks) || 0;
+    x.source = 'iiko';
   }
   for (const t of out.values()) {
+    for (const x of t.byDay.values()) {
+      if (x.source !== 'iiko' && x.reported) {
+        x.cash = x.reportCash; x.card = x.reportCard; x.revenue = x.reportCash + x.reportCard; x.source = 'report';
+      }
+      x.hasRevenue = x.source !== null;
+      x.shipped = r2(x.shipped); x.meat = r2(x.meat); x.cash = r2(x.cash); x.card = r2(x.card); x.revenue = r2(x.revenue);
+      t.shipped += x.shipped; t.meat += x.meat; t.cash += x.cash; t.card += x.card; t.revenue += x.revenue;
+      if (x.reported) t.reports += 1;
+      if (x.source === 'iiko') t.iikoDays += 1;
+    }
     t.shipped = r2(t.shipped); t.meat = r2(t.meat); t.cash = r2(t.cash); t.card = r2(t.card); t.revenue = r2(t.revenue);
     t.foodcost = foodcost(t.shipped + t.meat, t.revenue);
   }

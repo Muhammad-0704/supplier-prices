@@ -6,8 +6,8 @@ import { MonthNav } from '@/components/canteens/MonthNav';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { requireCanteens } from '@/lib/access';
 import { grandTotal, isMonth, markupRate, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
-import { costTotals, customerMap, loadCanteens, loadCostSummary, loadReports, loadShipments, loadSyncState } from '@/lib/canteens-data';
-import { num, pct } from '@/lib/format';
+import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments, loadSyncState } from '@/lib/canteens-data';
+import { num, pct, syncLabel } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
@@ -23,16 +23,18 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
 
   const month = isMonth(searchParams.month) ? searchParams.month : mskMonth();
   const manager = me.canteenRole === 'manager';
-  const [shipments, reports, sync, costRows] = await Promise.all([
+  const [shipments, reports, sync, costRows, iiko] = await Promise.all([
     loadShipments(db, canteens, month), loadReports(db, canteens, month), loadSyncState(db),
     manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
+    loadIiko(db, canteens, month),
   ]);
+  const iikoState = manager ? await loadSyncState(db, 'iiko') : null;
   const costs = costTotals(costRows);
   const costOf = (id: string, shipped: number) => {
     const c = costs.get(id);
     return c ? realCost(shipped, c.costed, c.cost) : null;
   };
-  const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports);
+  const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports, iiko);
   const all = grandTotal(totals.values());
   const today = mskDay(Date.now());
   const isCurrent = month === mskMonth();
@@ -133,8 +135,13 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                 )}
               </table>
             </div>
+            {iikoState && (
+              <p className={`cn-foot ${iikoState.ok ? 'muted' : 'err'}`}>
+                {syncLabel(iikoState.at).replace('Синхронизировано с 1С', 'Выручка из iiko обновлена')}{!iikoState.ok && iikoState.message ? ` — ${iikoState.message}` : ''}
+              </p>
+            )}
             <p className="muted cn-foot">
-              Суммы в рублях. Со склада — по ценам расходных накладных; мясо — из ежедневных отчётов; фудкост = (склад + мясо) ÷ выручка{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
+              Суммы в рублях. Со склада — по ценам расходных накладных; мясо — из ежедневных отчётов; выручка — из iiko там, где он подключён, иначе из отчётов; фудкост = (склад + мясо) ÷ выручка{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
               {withCost && ' По закупочным — по последней закупке до даты отгрузки; эти колонки видит только руководитель.'}
             </p>
           </section>

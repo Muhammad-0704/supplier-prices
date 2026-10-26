@@ -179,3 +179,60 @@ describe('столовые: мясо в отчёте', () => {
     expect(grandTotal([t])).toMatchObject({ shipped: 1000, meat: 600, revenue: 5000 });
   });
 });
+
+describe('iiko: OLAP по продажам', async () => {
+  const { chooseSalesFields, salesRequest, parseSales, olapDay, isCash } = await import('../src/lib/iiko/olap');
+  const cols = {
+    'OpenDate.Typed': { groupingAllowed: true, filteringAllowed: true },
+    PayTypes: { groupingAllowed: true },
+    'PayTypes.Group': { groupingAllowed: true },
+    DishDiscountSumInt: { aggregationAllowed: true },
+    'UniqOrderId.OrdersCount': { aggregationAllowed: true },
+    OrderDeleted: { filteringAllowed: true },
+    DeletedWithWriteoff: { filteringAllowed: true },
+  };
+  it('поля и запрос', () => {
+    const f = chooseSalesFields(cols)!;
+    expect(f).toMatchObject({ date: 'OpenDate.Typed', payType: 'PayTypes', payGroup: 'PayTypes.Group', sum: 'DishDiscountSumInt', orders: 'UniqOrderId.OrdersCount' });
+    const body = salesRequest(f, '2026-10-01', '2026-10-27') as { groupByRowFields: string[]; filters: Record<string, { from?: string; values?: string[] }> };
+    expect(body.groupByRowFields).toEqual(['OpenDate.Typed', 'PayTypes', 'PayTypes.Group']);
+    expect(body.filters['OpenDate.Typed'].from).toBe('2026-10-01');
+    expect(body.filters.OrderDeleted.values).toEqual(['NOT_DELETED']);
+    expect(chooseSalesFields({ PayTypes: {} })).toBeNull();
+  });
+  it('наличные и безнал по дням, чеки', () => {
+    const f = chooseSalesFields(cols)!;
+    const out = parseSales(f, [
+      { 'OpenDate.Typed': '2026-10-25', PayTypes: 'Наличные', 'PayTypes.Group': 'CASH', DishDiscountSumInt: 12000 },
+      { 'OpenDate.Typed': '2026-10-25', PayTypes: 'Банковские карты', 'PayTypes.Group': 'CARD', DishDiscountSumInt: 30500.5 },
+      { 'OpenDate.Typed': '2026-10-25', PayTypes: 'СБП', 'PayTypes.Group': 'NON_CASH', DishDiscountSumInt: 1000 },
+      { 'OpenDate.Typed': '26.10.2026', PayTypes: 'Наличные', 'PayTypes.Group': 'CASH', DishDiscountSumInt: 500 },
+    ], [{ 'OpenDate.Typed': '2026-10-25', 'UniqOrderId.OrdersCount': 87 }]);
+    expect(out).toEqual([
+      { day: '2026-10-25', cash: 12000, card: 31500.5, total: 43500.5, checks: 87, byPayType: { Наличные: 12000, 'Банковские карты': 30500.5, СБП: 1000 } },
+      { day: '2026-10-26', cash: 500, card: 0, total: 500, checks: 0, byPayType: { Наличные: 500 } },
+    ]);
+    expect(olapDay('2026-10-25T00:00:00')).toBe('2026-10-25');
+    expect(isCash('Безналичный расчёт')).toBe(false);
+    expect(isCash('Наличные')).toBe(true);
+  });
+});
+
+describe('столовые: выручка из iiko', () => {
+  it('iiko заменяет выручку из отчёта, мясо и отчёт остаются; расхождение видно', async () => {
+    const { reportMismatch } = await import('../src/lib/canteens');
+    const t = summarize(['k'], new Map([['ck', 'k']]),
+      [{ customer_id: 'ck', doc_date: '2026-10-25T06:00:00Z', amount: 10000 }],
+      [{ canteen_id: 'k', report_date: '2026-10-25', cash: 10000, card: 25000, meat: 3000 }, { canteen_id: 'k', report_date: '2026-10-24', cash: 1000, card: 1000 }],
+      [{ canteen_id: 'k', day: '2026-10-25', cash: 12000, card: 28000, total: 40000, checks: 90 }, { canteen_id: 'k', day: '2026-10-23', cash: 0, card: 5000, total: 5000 }]).get('k')!;
+    const d25 = t.byDay.get('2026-10-25')!;
+    expect(d25).toMatchObject({ source: 'iiko', revenue: 40000, cash: 12000, meat: 3000, reported: true, checks: 90 });
+    expect(reportMismatch(d25)).toBe(-5000);
+    expect(t.byDay.get('2026-10-24')!).toMatchObject({ source: 'report', revenue: 2000 });
+    expect(t.byDay.get('2026-10-23')!).toMatchObject({ source: 'iiko', reported: false, hasRevenue: true });
+    expect(t.revenue).toBe(47000);
+    expect(t.reports).toBe(2);
+    expect(t.iikoDays).toBe(2);
+    expect(t.foodcost).toBeCloseTo(13000 / 47000);
+  });
+});

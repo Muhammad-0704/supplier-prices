@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { runIikoSync } from '@/lib/iiko/sync';
 import { runPriceSettingsSync, runShipmentsSync } from '@/lib/shipments-sync';
 import { makeOneCClient, runSync } from '@/lib/sync';
 
@@ -24,7 +25,9 @@ async function handle(trigger: 'manual' | 'cron') {
   // Расходные на точки — после справочников; их сбой не мешает прайс-доске
   const shipments = result.ok ? await runShipmentsSync(db, onec) : null;
   const priceSettings = result.ok ? await runPriceSettingsSync(db, onec) : null;
-  return NextResponse.json({ ...result, shipments, priceSettings }, { status: result.ok ? 200 : 502 });
+  // Выручка из iiko не зависит от 1С; по расписанию — не чаще раза в 30 минут, по кнопке — сразу
+  const iiko = await runIikoSync(db, trigger === 'manual').catch((e) => ({ ok: false, message: (e as Error).message }));
+  return NextResponse.json({ ...result, shipments, priceSettings, iiko }, { status: result.ok ? 200 : 502 });
 }
 
 /** Расписание: Vercel Cron и Supabase pg_cron присылают Authorization: Bearer <CRON_SECRET>. */
