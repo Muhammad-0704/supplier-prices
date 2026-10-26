@@ -18,7 +18,7 @@ export async function Header({ role, userName, current, children }: { role: Role
           <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
         </Link>
         <div>
-          <Link href="/" className="brand__home"><h1>Прайс-доска</h1></Link>
+          <Link href="/price" className="brand__home"><h1>Прайс-доска</h1></Link>
           <div className="brand__sub">
             {userName} <Badge tone="role">{role === 'manager' ? 'руководитель' : 'сотрудник'}</Badge>
           </div>
@@ -26,7 +26,7 @@ export async function Header({ role, userName, current, children }: { role: Role
       </div>
       <div className="top__right">
         <nav className="nav" aria-label="Разделы">
-          <Link href="/" aria-current={current === 'board' ? 'page' : undefined}>Доска</Link>
+          <Link href="/price" aria-current={current === 'board' ? 'page' : undefined}>Доска</Link>
           <Link href="/order" aria-current={current === 'order' ? 'page' : undefined}>Заявка</Link>
           {role === 'manager' && (
             <Link href="/offers" aria-current={current === 'offers' ? 'page' : undefined}>

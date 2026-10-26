@@ -6,8 +6,8 @@ async function requireMember() {
   const db = createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('Войдите в аккаунт.');
-  const { data } = await db.from('profiles').select('id').eq('id', user.id).maybeSingle();
-  if (!data) throw new Error('Вас ещё не добавили в команду.');
+  const { data } = await db.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  if (!data?.role) throw new Error('Вас ещё не добавили в команду прайс-доски.');
   return { db, user };
 }
 

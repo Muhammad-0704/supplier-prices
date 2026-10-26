@@ -26,6 +26,19 @@ export const ONEC = {
     qtyField: 'Количество',
     priceField: 'Цена',
   },
+  /** Расходные накладные склада: отгрузки на точки (покупателей) */
+  shipments: {
+    entity: 'Document_РасходнаяНакладная',
+    customerField: 'Контрагент_Key',
+    operationField: 'ВидОперации',
+    linesField: 'Запасы',
+    itemField: 'Номенклатура_Key',
+    qtyField: 'Количество',
+    priceField: 'Цена',
+    /** Сумма строки с НДС; если пусто — «Сумма» или цена × количество */
+    totalField: 'Всего',
+    sumField: 'Сумма',
+  },
   /** Ответ до ~20 КБ: большие передачи из 1С:Фреш за рубеж зависают */
   pageSize: 60,
 } as const;
@@ -38,7 +51,11 @@ export const SELECT = {
   /** Шапки накладных без табличной части: строки забираются отдельно, иначе ответ слишком большой */
   receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField, ONEC.receipts.operationField],
   lines: ['Ref_Key', 'LineNumber', ONEC.receipts.itemField, ONEC.receipts.qtyField, ONEC.receipts.priceField],
+  shipments: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.shipments.customerField, ONEC.shipments.operationField],
+  shipmentLines: ['Ref_Key', 'LineNumber', ONEC.shipments.itemField, ONEC.shipments.qtyField, ONEC.shipments.priceField, ONEC.shipments.sumField, ONEC.shipments.totalField],
 };
+
+export const SHIPMENT_LINES_ENTITY = `${ONEC.shipments.entity}_${ONEC.shipments.linesField}`;
 
 /** Табличная часть как отдельный объект OData: Document_ПриходнаяНакладная_Запасы */
 export const LINES_ENTITY = `${ONEC.receipts.entity}_${ONEC.receipts.linesField}`;

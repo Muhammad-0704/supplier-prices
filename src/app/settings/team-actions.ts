@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { ensureAccount } from '@/lib/users';
 
 export type ActionState = { ok?: string; error?: string } | null;
 
@@ -26,9 +27,15 @@ export async function addMember(_prev: ActionState, form: FormData): Promise<Act
     if (password.length < 8) return { error: 'Пароль должен быть не короче 8 символов.' };
 
     const admin = createAdminClient();
-    const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: fullName } });
-    if (error) return { error: error.message.includes('already') ? 'Сотрудник с такой почтой уже есть.' : `Не удалось создать: ${error.message}` };
-    await admin.from('profiles').upsert({ id: data.user.id, full_name: fullName, role });
+    const acc = await ensureAccount(admin, email, password, fullName);
+    if (!acc.created) {
+      const { data: p } = await admin.from('profiles').select('role').eq('id', acc.id).maybeSingle();
+      if (p?.role) return { error: 'Сотрудник с такой почтой уже в команде.' };
+      await admin.from('profiles').upsert({ id: acc.id, role });
+      revalidatePath('/settings');
+      return { ok: `У ${email} уже есть аккаунт в другом сервисе: открыли ему прайс-доску. Пароль прежний.` };
+    }
+    await admin.from('profiles').upsert({ id: acc.id, full_name: fullName, role });
     revalidatePath('/settings');
     return { ok: `${fullName} добавлен. Передайте ему почту и пароль, войти можно сразу.` };
   } catch (e) {
@@ -50,6 +57,10 @@ export async function removeMember(form: FormData) {
   const me = await requireManager();
   const id = String(form.get('id'));
   if (id === me.id) return;
-  await createAdminClient().auth.admin.deleteUser(id);
+  const admin = createAdminClient();
+  // Человек работает и в «Столовых»: убираем только доступ к прайс-доске, аккаунт остаётся
+  const { data: p } = await admin.from('profiles').select('canteen_role').eq('id', id).maybeSingle();
+  if (p?.canteen_role) await admin.from('profiles').update({ role: null }).eq('id', id);
+  else await admin.auth.admin.deleteUser(id);
   revalidatePath('/settings');
 }

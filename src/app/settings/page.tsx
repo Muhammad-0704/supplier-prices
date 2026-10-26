@@ -34,7 +34,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
   const { data: me } = await db.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
-  if (!me) redirect('/');
+  if (!me?.role) redirect('/');
   const role: Role = me.role === 'manager' ? 'manager' : 'staff';
   const tabs = TABS.filter((t) => !t.manager || role === 'manager');
   const tab = (tabs.find((t) => t.id === searchParams.tab) ?? tabs[0]).id;
@@ -79,7 +79,7 @@ function ProfileTab({ name, email, role }: { name: string; email: string; role: 
 async function TeamTab({ meId }: { meId: string }) {
   const db = createClient();
   const [{ data: profiles }, users] = await Promise.all([
-    db.from('profiles').select('id, full_name, role, created_at').order('created_at'),
+    db.from('profiles').select('id, full_name, role, created_at').not('role', 'is', null).order('created_at'),
     createAdminClient().auth.admin.listUsers({ perPage: 200 }),
   ]);
   const emails = new Map((users.data?.users ?? []).map((u) => [u.id, u.email ?? '']));

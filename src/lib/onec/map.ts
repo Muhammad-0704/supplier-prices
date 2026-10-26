@@ -118,3 +118,73 @@ export function mapReceipts(rows: ODataRow[], separateLines?: ODataRow[]): Mappe
   }
   return { lines, docRefs };
 }
+
+export interface ShipmentLine {
+  onec_doc_ref: string;
+  line_no: number;
+  doc_number: string | null;
+  doc_date: string;
+  customer_ref: string;
+  item_ref: string;
+  qty: number;
+  price: number;
+  amount: number;
+  operation: string | null;
+}
+
+/** Расходные, строки которых нужно забрать: проведённые, не удалённые, с покупателем. */
+export function postedShipmentRefs(rows: ODataRow[]): string[] {
+  const f = ONEC.shipments.customerField;
+  return rows
+    .filter((d) => d.Posted === true && d.DeletionMark !== true && str(d[f]) && str(d[f]) !== EMPTY_REF)
+    .map((d) => str(d.Ref_Key))
+    .filter(Boolean);
+}
+
+/**
+ * Расходные накладные → строки отгрузок. Как и с приходными: все документы выборки идут в docRefs
+ * (их старые строки переписываются), строки — только у проведённых.
+ */
+export function mapShipments(rows: ODataRow[], separateLines: ODataRow[]): { lines: ShipmentLine[]; docRefs: string[] } {
+  const cfg = ONEC.shipments;
+  const byDoc = new Map<string, Map<number, ODataRow>>();
+  for (const l of separateLines) {
+    const ref = str(l.Ref_Key);
+    const m = byDoc.get(ref) ?? new Map<number, ODataRow>();
+    m.set(n(l.LineNumber), l);
+    byDoc.set(ref, m);
+  }
+  const lines: ShipmentLine[] = [];
+  const docRefs: string[] = [];
+  for (const d of rows) {
+    const ref = str(d.Ref_Key);
+    if (!ref) continue;
+    docRefs.push(ref);
+    if (d.Posted !== true || d.DeletionMark === true) continue;
+    const customer = str(d[cfg.customerField]);
+    if (!customer || customer === EMPTY_REF) continue;
+    const date = onecDateToIso(d.Date);
+    const operation = str(d[cfg.operationField]).trim() || null;
+    const tab = [...(byDoc.get(ref)?.values() ?? [])].sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
+    tab.forEach((l, i) => {
+      const item = str(l[cfg.itemField]);
+      if (!item || item === EMPTY_REF) return;
+      const qty = n(l[cfg.qtyField]);
+      const price = n(l[cfg.priceField]);
+      const amount = n(l[cfg.totalField]) || n(l[cfg.sumField]) || price * qty;
+      lines.push({
+        onec_doc_ref: ref,
+        line_no: n(l.LineNumber) || i + 1,
+        doc_number: str(d.Number).trim() || null,
+        doc_date: date,
+        customer_ref: customer,
+        item_ref: item,
+        qty,
+        price: Math.round(price * 100) / 100,
+        amount: Math.round(amount * 100) / 100,
+        operation,
+      });
+    });
+  }
+  return { lines, docRefs };
+}

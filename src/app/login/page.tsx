@@ -19,8 +19,8 @@ export default function LoginPage() {
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
           <div>
-            <h1>Прайс-доска</h1>
-            <div className="brand__sub">Закупочные цены поставщиков</div>
+            <h1>База</h1>
+            <div className="brand__sub">Прайс-доска и столовые</div>
           </div>
         </div>
         <div className="field">
