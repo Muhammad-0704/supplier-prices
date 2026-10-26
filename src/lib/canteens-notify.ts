@@ -1,0 +1,52 @@
+/** Telegram для «Столовых»: напоминание админам, кто не сдал отчёт, и утренняя сводка руководителю. */
+import { dayTitle, type CanteenTotals } from './canteens';
+
+const n0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+const money = (v: number) => `${n0.format(Math.round(v))} ₽`;
+const pct = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Ключи в app_settings: личный чат и код привязки пользователя */
+export const chatKey = (userId: string) => `tg_chat:${userId}`;
+export const codeKey = (userId: string) => `tg_code:${userId}`;
+
+export function reminderText(canteenNames: string[], day: string, siteUrl: string | null): string {
+  const list = canteenNames.map((c) => `«${esc(c)}»`).join(', ');
+  const link = siteUrl ? `\n<a href="${siteUrl}/canteens">Сдать отчёт</a>` : '';
+  return `Напоминание: отчёт за ${dayTitle(day)} по ${canteenNames.length > 1 ? 'точкам' : 'точке'} ${list} ещё не сдан. Наличные и безнал — 2 минуты.${link}`;
+}
+
+/**
+ * Сводка руководителю за день: по каждой точке выручка, отгружено со склада, фудкост; кто не сдал отчёт.
+ * Внизу — итог месяца на сегодня.
+ */
+export function summaryText(
+  day: string,
+  canteens: { id: string; name: string }[],
+  totals: Map<string, CanteenTotals>,
+  siteUrl: string | null,
+): string {
+  const lines: string[] = [`<b>Столовые за ${dayTitle(day)}</b>`];
+  let rev = 0, ship = 0, mRev = 0, mShip = 0;
+  const missing: string[] = [];
+  for (const c of canteens) {
+    const t = totals.get(c.id);
+    const d = t?.byDay.get(day);
+    const shipped = d?.shipped ?? 0;
+    ship += shipped;
+    if (t) { mRev += t.revenue; mShip += t.shipped; }
+    if (!d?.reported) {
+      missing.push(c.name);
+      lines.push(`${esc(c.name)}: отчёта нет · склад ${money(shipped)}`);
+      continue;
+    }
+    rev += d.revenue;
+    lines.push(`${esc(c.name)}: выручка ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}) · склад ${money(shipped)} · фудкост ${pct(d.revenue > 0 ? shipped / d.revenue : null)}`);
+  }
+  lines.push('');
+  lines.push(`<b>Всего:</b> выручка ${money(rev)} · склад ${money(ship)}`);
+  if (missing.length) lines.push(`Не сдали отчёт: ${missing.map(esc).join(', ')}`);
+  lines.push(`С начала месяца: выручка ${money(mRev)} · склад ${money(mShip)} · фудкост ${pct(mRev > 0 ? mShip / mRev : null)}`);
+  if (siteUrl) lines.push(`<a href="${siteUrl}/canteens">Открыть «Столовые»</a>`);
+  return lines.join('\n');
+}

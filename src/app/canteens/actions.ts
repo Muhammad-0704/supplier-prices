@@ -1,8 +1,11 @@
 'use server';
+import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { canEditDay, parseMoney } from '@/lib/canteens';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { chatKey, codeKey } from '@/lib/canteens-notify';
+import { botUsername, findStartCode, sendTo, telegramConfigured } from '@/lib/telegram';
 import { ensureAccount } from '@/lib/users';
 
 export type ActionState = { ok?: string; error?: string } | null;
@@ -112,5 +115,47 @@ export async function linkCustomer(form: FormData) {
   if (!customerId) return;
   if (canteenId) await db.from('canteen_customers').upsert({ customer_id: customerId, canteen_id: canteenId });
   else await db.from('canteen_customers').delete().eq('customer_id', customerId);
+  revalidatePath('/canteens', 'layout');
+}
+
+// ---------- Личный Telegram для напоминаний ----------
+
+/** Код для ссылки t.me/<бот>?start=<код>: по нему найдём чат человека среди сообщений боту. */
+export async function startTelegramLink(): Promise<{ link?: string; error?: string }> {
+  try {
+    const { user } = await me();
+    if (!telegramConfigured()) return { error: 'Бот Telegram ещё не настроен. Скажите руководителю.' };
+    const bot = await botUsername();
+    if (!bot) return { error: 'Не удалось связаться с ботом Telegram. Попробуйте позже.' };
+    const code = `c${randomBytes(6).toString('hex')}`;
+    await createAdminClient().from('app_settings').upsert({ key: codeKey(user.id), value: code, updated_at: new Date().toISOString() });
+    return { link: `https://t.me/${bot}?start=${code}` };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** После «Старт» в боте: сохраняем чат и шлём проверочное сообщение. */
+export async function finishTelegramLink(): Promise<{ ok?: string; error?: string }> {
+  try {
+    const { user } = await me();
+    const admin = createAdminClient();
+    const { data } = await admin.from('app_settings').select('value').eq('key', codeKey(user.id)).maybeSingle();
+    if (!data?.value) return { error: 'Сначала нажмите «Подключить Telegram».' };
+    const hit = await findStartCode(data.value);
+    if (!hit) return { error: 'Бот пока не получил «Старт» по вашей ссылке. Откройте ссылку, нажмите «Старт» в Telegram и попробуйте ещё раз.' };
+    await admin.from('app_settings').upsert({ key: chatKey(user.id), value: hit.chatId, updated_at: new Date().toISOString() });
+    await admin.from('app_settings').delete().eq('key', codeKey(user.id));
+    await sendTo(hit.chatId, 'Готово: сюда будут приходить напоминания «Столовых», если отчёт за день не сдан к 21:00.');
+    revalidatePath('/canteens', 'layout');
+    return { ok: 'Telegram подключён.' };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+export async function unlinkTelegram() {
+  const { user } = await me();
+  await createAdminClient().from('app_settings').delete().in('key', [chatKey(user.id), codeKey(user.id)]);
   revalidatePath('/canteens', 'layout');
 }

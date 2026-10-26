@@ -1,14 +1,19 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CanteenHeader } from '@/components/canteens/CanteenHeader';
+import { DayChart } from '@/components/canteens/Charts';
 import { MonthNav } from '@/components/canteens/MonthNav';
 import { ReportForm, type ReportValue } from '@/components/canteens/ReportForm';
 import { SyncNote } from '@/components/canteens/SyncNote';
+import { TelegramLink } from '@/components/canteens/TelegramLink';
 import { requireCanteens } from '@/lib/access';
-import { dayTitle, isMonth, markupRate, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
+import { dayTitle, isMonth, markupRate, monthRange, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
+import { chatKey } from '@/lib/canteens-notify';
 import { costTotals, customerMap, loadCanteens, loadCostSummary, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
 import { num, rubFine } from '@/lib/format';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { telegramConfigured } from '@/lib/telegram';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +42,9 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
     manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
   ]);
   const cc = costTotals(costRows.filter((r) => r.canteen_id === canteen.id)).get(canteen.id);
+  const tgLinked = !manager && telegramConfigured()
+    ? !!(await createAdminClient().from('app_settings').select('key').eq('key', chatKey(me.userId)).maybeSingle()).data
+    : false;
   const t = summarize([canteen.id], customerMap([canteen]), lines, reports).get(canteen.id)!;
 
   const formReports: Record<string, ReportValue> = {};
@@ -68,6 +76,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
       <SyncNote at={sync?.at ?? null} ok={sync?.ok ?? true} message={sync?.message ?? null} />
 
       <ReportForm canteenId={canteen.id} today={today} minDay={manager ? null : yesterday} reports={formReports} />
+      {!manager && telegramConfigured() && <TelegramLink linked={tgLinked} />}
 
       <section className="card-box">
         <div className="cn-head">
@@ -90,6 +99,11 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
           })()}
           <div className="pb-stats__item"><span className="pb-stats__label">Отчётов сдано</span><span className="pb-stats__value">{t.reports}</span></div>
         </div>
+
+        {days.length > 0 && <DayChart days={monthRange(month).days.filter((d) => d <= today).map((d) => {
+          const x = t.byDay.get(d);
+          return { day: d, revenue: x?.revenue ?? 0, shipped: x?.shipped ?? 0, reported: !!x?.reported };
+        })} />}
 
         {!canteen.customerIds.length && <div className="notice">Точка не привязана к покупателю в 1С — закупки не видны. {manager ? 'Привяжите в «Доступах».' : 'Скажите руководителю.'}</div>}
 

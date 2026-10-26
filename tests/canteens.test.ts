@@ -142,3 +142,25 @@ describe('столовые: выгрузка в Excel', async () => {
     expect(g.slice(1, 7)).toEqual([1100, 1000, 3000, 4000, 0.275, 1000]);
   });
 });
+
+describe('столовые: Telegram', async () => {
+  const { reminderText, summaryText } = await import('../src/lib/canteens-notify');
+  it('напоминание про несданные точки', () => {
+    const t = reminderText(['Гастромания', 'Донер Дубровка'], '2026-10-26', 'https://example.ru');
+    expect(t).toContain('26.10, пн');
+    expect(t).toContain('«Гастромания», «Донер Дубровка»');
+    expect(t).toContain('точкам');
+    expect(t).toContain('https://example.ru/canteens');
+  });
+  it('сводка за день: выручка, склад, фудкост, кто не сдал', () => {
+    const links = new Map([['cg', 'g'], ['cd', 'd']]);
+    const totals = summarize(['g', 'd'], links,
+      [{ customer_id: 'cg', doc_date: '2026-10-25T06:00:00Z', amount: 2000 }, { customer_id: 'cd', doc_date: '2026-10-25T06:00:00Z', amount: 500 }],
+      [{ canteen_id: 'g', report_date: '2026-10-25', cash: 3000, card: 5000 }]);
+    const t = summaryText('2026-10-25', [{ id: 'g', name: 'Гастромания' }, { id: 'd', name: 'Донер <Дубровка>' }], totals, null);
+    expect(t).toContain('Гастромания: выручка 8');
+    expect(t).toContain('фудкост 25,0%');
+    expect(t).toContain('Не сдали отчёт: Донер &lt;Дубровка&gt;');
+    expect(t).not.toContain('<a href');
+  });
+});
