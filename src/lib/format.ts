@@ -73,7 +73,7 @@ export function shortSupplier(name: string): string {
   // Инициалы склеены неразрывным пробелом, чтобы не разъезжались по строкам
   if (ip) return `${ip[1]} ${ip[2]}.${ip[3] ? `\u00a0${ip[3]}.` : ''}`;
   const out = s
-    .replace(/^(ООО|ОАО|ЗАО|ПАО|АО|ИП|ЧП|ТОО)\s+/u, '')
+    .replace(/^(ООО|ОАО|ЗАО|ПАО|АО|ИП|ЧП|ТОО|ТД|ТК)\s+/u, '')
     .replace(/[«»"“”„]/g, '')
     .replace(/\s+/g, ' ')
     .trim();

@@ -328,3 +328,9 @@ button { font: inherit; }
 .board--pan { cursor: grab; }
 .board--pan .mx td, .board--pan .mx th.item { cursor: pointer; }
 .board--dragging, .board--dragging * { cursor: grabbing !important; user-select: none; }
+
+/* Заголовки поставщиков ровно: названия с одной линии, под название ровно две строки, «поз.» у всех на одной высоте */
+.mx thead th:not(.corner) { vertical-align: top; }
+.mx thead th .sup-name { -webkit-line-clamp: 2; min-height: 32px; }
+.mx thead th.corner { vertical-align: top; }
+.mx thead th.corner .cnt { margin-top: 18px; }
