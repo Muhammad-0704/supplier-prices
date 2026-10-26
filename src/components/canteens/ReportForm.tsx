@@ -8,20 +8,22 @@ function Submit({ edit }: { edit: boolean }) {
   return <button className="pb-btn pb-btn--primary" type="submit" disabled={pending}>{pending ? 'Сохраняем…' : edit ? 'Исправить' : 'Сдать отчёт'}</button>;
 }
 
-export interface ReportValue { cash: number; card: number }
+export interface ReportValue { cash: number; card: number; meat: number }
 
-/** Отчёт за день: дата, наличные, безнал (сверяют с чеками из отчёта кассы). Подставляет уже сданные цифры. */
+/** Отчёт за день: дата, наличные, безнал (сверяют с чеками из отчёта кассы), мясо по накладным. Подставляет уже сданные цифры. */
 export function ReportForm({ canteenId, today, minDay, reports }: { canteenId: string; today: string; minDay: string | null; reports: Record<string, ReportValue> }) {
   const [state, action] = useFormState(saveReport, null);
   const [day, setDay] = useState(today);
   const cur = reports[day];
   const [cash, setCash] = useState(cur ? String(cur.cash) : '');
   const [card, setCard] = useState(cur ? String(cur.card) : '');
+  const [meat, setMeat] = useState(cur?.meat ? String(cur.meat) : '');
 
   useEffect(() => {
     const r = reports[day];
     setCash(r ? String(r.cash) : '');
     setCard(r ? String(r.card) : '');
+    setMeat(r?.meat ? String(r.meat) : '');
   }, [day, reports]);
 
   const total = (Number(cash.replace(/\s/g, '').replace(',', '.')) || 0) + (Number(card.replace(/\s/g, '').replace(',', '.')) || 0);
@@ -46,10 +48,14 @@ export function ReportForm({ canteenId, today, minDay, reports }: { canteenId: s
           <label htmlFor="card">Безнал, ₽</label>
           <input className="input num" id="card" name="card" inputMode="decimal" autoComplete="off" placeholder="0" value={card} onChange={(e) => setCard(e.target.value)} />
         </div>
+        <div className="field">
+          <label htmlFor="meat">Мясо, ₽</label>
+          <input className="input num" id="meat" name="meat" inputMode="decimal" autoComplete="off" placeholder="0" value={meat} onChange={(e) => setMeat(e.target.value)} aria-describedby="meat_hint" />
+        </div>
         <Submit edit={!!cur} />
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-        Выручка за день: <b className="num">{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(total)} ₽</b>. Безнал сверьте с отчётом кассы.
+        Выручка за день: <b className="num">{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(total)} ₽</b>. Безнал сверьте с отчётом кассы. <span id="meat_hint">Мясо — сумма за день по накладным мясного магазина, как в тетради.</span>
         {minDay && ' Исправить можно отчёт за сегодня и вчера.'}
       </p>
       {state?.error && <p className="err" role="alert">{state.error}</p>}

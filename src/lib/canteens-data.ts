@@ -56,10 +56,10 @@ export async function loadShipments(db: SupabaseClient, canteens: Canteen[], mon
 export async function loadReports(db: SupabaseClient, canteens: Canteen[], month: string): Promise<ReportRow[]> {
   if (!canteens.length) return [];
   const { days } = monthRange(month);
-  const { data, error } = await db.from('daily_reports').select('canteen_id, report_date, cash, card')
+  const { data, error } = await db.from('daily_reports').select('canteen_id, report_date, cash, card, meat')
     .in('canteen_id', canteens.map((c) => c.id)).gte('report_date', days[0]).lte('report_date', days[days.length - 1]);
   if (error) throw new Error(`Отчёты: ${error.message}`);
-  return (data ?? []).map((r) => ({ ...r, cash: Number(r.cash), card: Number(r.card) }));
+  return (data ?? []).map((r) => ({ ...r, cash: Number(r.cash), card: Number(r.card), meat: Number(r.meat ?? 0) }));
 }
 
 export async function loadSyncState(db: SupabaseClient): Promise<{ at: string; ok: boolean; message: string | null } | null> {

@@ -135,11 +135,13 @@ describe('столовые: выгрузка в Excel', async () => {
     const sheets = buildMonthWorkbook('2026-10', [{ id: 'g', name: 'Гастромания' }], totals, costs);
     expect(sheets.map((s) => s.sheet)).toEqual(['Итог', 'Гастромания']);
     expect(sheets[1].data).toHaveLength(3 + 31 + 1);
+    expect(sheets[0].data[2].map((c) => (c as { value: string }).value)).toContain('Мясо');
     const buf = await writeXlsxFile(sheets as unknown as Parameters<typeof writeXlsxFile>[0]).toBuffer();
     const book = (await readXlsxFile(buf)) as unknown as { sheet: string; data: unknown[][] }[];
     expect(book.map((s) => s.sheet)).toEqual(['Итог', 'Гастромания']);
     const g = book[0].data.find((r) => r[0] === 'Гастромания')!;
-    expect(g.slice(1, 7)).toEqual([1100, 1000, 3000, 4000, 0.275, 1000]);
+    // склад, мясо, нал, безнал, выручка, фудкост, по закупочным
+    expect(g.slice(1, 8)).toEqual([1100, 0, 1000, 3000, 4000, 0.275, 1000]);
   });
 });
 
@@ -162,5 +164,18 @@ describe('столовые: Telegram', async () => {
     expect(t).toContain('фудкост 25,0%');
     expect(t).toContain('Не сдали отчёт: Донер &lt;Дубровка&gt;');
     expect(t).not.toContain('<a href');
+  });
+});
+
+describe('столовые: мясо в отчёте', () => {
+  it('фудкост = (склад + мясо) ÷ выручка, по дням и за месяц', () => {
+    const t = summarize(['g'], new Map([['cg', 'g']]),
+      [{ customer_id: 'cg', doc_date: '2026-10-01T06:00:00Z', amount: 1000 }],
+      [{ canteen_id: 'g', report_date: '2026-10-01', cash: 2000, card: 2000, meat: 600 }, { canteen_id: 'g', report_date: '2026-10-02', cash: 1000, card: 0 }]).get('g')!;
+    expect(t.meat).toBe(600);
+    expect(t.foodcost).toBeCloseTo(1600 / 5000);
+    expect(t.byDay.get('2026-10-01')!.meat).toBe(600);
+    expect(t.byDay.get('2026-10-02')!.meat).toBe(0);
+    expect(grandTotal([t])).toMatchObject({ shipped: 1000, meat: 600, revenue: 5000 });
   });
 });
