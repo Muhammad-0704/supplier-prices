@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import type { Role } from '@/lib/types';
+import { PriceLogo } from './Logos';
 import { ThemeToggle } from './ThemeToggle';
 import { Badge } from './ui';
 
@@ -15,7 +16,7 @@ export async function Header({ role, userName, current, children }: { role: Role
     <header className="top">
       <div className="brand">
         <Link href="/" className="brand__home" aria-label="На главную" tabIndex={-1}>
-          <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+          <PriceLogo size={32} />
         </Link>
         <div>
           <Link href="/price" className="brand__home"><h1>Прайс-доска</h1></Link>

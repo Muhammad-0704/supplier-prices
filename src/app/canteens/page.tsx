@@ -5,14 +5,13 @@ import { CompareBars } from '@/components/canteens/Charts';
 import { MonthNav } from '@/components/canteens/MonthNav';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { requireCanteens } from '@/lib/access';
-import { grandTotal, isMonth, markupRate, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
+import { isMonth, mskDay, mskMonth, summarize } from '@/lib/canteens';
 import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments, loadSyncState } from '@/lib/canteens-data';
-import { num, pct, syncLabel } from '@/lib/format';
+import { buildViews, fcText as fc, totalView } from '@/lib/canteens-view';
+import { num, pct, plural, syncLabel } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
-
-const fc = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
 
 /** Все точки за месяц: руководитель видит все и общий итог; админ — свои (одна точка — сразу её страница). */
 export default async function CanteensPage({ searchParams }: { searchParams: { month?: string } }) {
@@ -29,19 +28,13 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
     loadIiko(db, canteens, month),
   ]);
   const iikoState = manager ? await loadSyncState(db, 'iiko') : null;
-  const costs = costTotals(costRows);
-  const costOf = (id: string, shipped: number) => {
-    const c = costs.get(id);
-    return c ? realCost(shipped, c.costed, c.cost) : null;
-  };
   const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports, iiko);
-  const all = grandTotal(totals.values());
+  // Руководитель видит склад по закупочным ценам, админ — по ценам расходных
+  const points = buildViews(canteens, totals, manager ? costTotals(costRows) : null);
+  const all = totalView(points);
+  const byCost = manager && costRows.length > 0;
   const today = mskDay(Date.now());
   const isCurrent = month === mskMonth();
-  const withCost = manager && costs.size > 0;
-  let allCost = 0, allCosted = 0, allPure = 0;
-  for (const c of costs.values()) { allCosted += c.costed; allPure += c.cost; }
-  allCost = realCost(all.shipped, allCosted, allPure);
 
   return (
     <main className="page">
@@ -82,53 +75,41 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                 <thead>
                   <tr>
                     <th>Точка</th>
-                    <th className="r">Со склада</th>
+                    <th className="r" title={byCost ? 'Отгружено со склада по закупочным ценам' : 'Отгружено со склада по ценам расходных'}>Со склада</th>
                     <th className="r" title="Сумма мяса из ежедневных отчётов (по накладным мясного магазина)">Мясо</th>
                     <th className="r">Наличные</th>
                     <th className="r">Безнал</th>
                     <th className="r">Выручка</th>
-                    <th className="r" title="(Склад + мясо) ÷ выручка">Фудкост</th>
-                    {withCost && <th className="r" title="Те же строки по последней закупочной цене">По закупочным</th>}
-                    {withCost && <th className="r" title="По расходным ÷ по закупочным − 1">Наценка</th>}
-                    {withCost && <th className="r" title="(Склад по закупочным + мясо) ÷ выручка">Реальный фудкост</th>}
+                    <th className="r" title="(Склад + мясо) ÷ выручка, за дни с выручкой">Фудкост</th>
                     <th className="r">Отчётов</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {canteens.map((c) => {
-                    const t = totals.get(c.id)!;
-                    const cost = costOf(c.id, t.shipped);
-                    const cc = costs.get(c.id);
-                    return (
-                      <tr key={c.id}>
-                        <td><Link href={`/canteens/${c.id}?month=${month}`}>{c.name}</Link>{!c.customerIds.length && <span className="muted"> · нет покупателя 1С</span>}</td>
-                        <td className="r num">{num(t.shipped)}</td>
-                        <td className="r num">{t.meat ? num(t.meat) : '—'}</td>
-                        <td className="r num">{num(t.cash)}</td>
-                        <td className="r num">{num(t.card)}</td>
-                        <td className="r num">{num(t.revenue)}</td>
-                        <td className="r num">{fc(t.foodcost)}</td>
-                        {withCost && <td className="r num">{cost != null ? num(cost) : '—'}</td>}
-                        {withCost && <td className="r num">{cc ? fc(markupRate(cc.costed, cc.cost)) : '—'}</td>}
-                        {withCost && <td className="r num">{cost != null && t.revenue > 0 ? fc((cost + t.meat) / t.revenue) : '—'}</td>}
-                        <td className="r num">{t.reports}</td>
-                      </tr>
-                    );
-                  })}
+                  {points.map((p) => (
+                    <tr key={p.id}>
+                      <td><Link href={`/canteens/${p.id}?month=${month}`}>{p.name}</Link>{!canteens.find((c) => c.id === p.id)?.customerIds.length && <span className="muted"> · нет покупателя 1С</span>}</td>
+                      <td className="r num">{num(p.buy)}</td>
+                      <td className="r num">{p.meat ? num(p.meat) : '—'}</td>
+                      <td className="r num">{p.revenue ? num(p.cash) : '—'}</td>
+                      <td className="r num">{p.revenue ? num(p.card) : '—'}</td>
+                      <td className="r num">{p.revenue ? num(p.revenue) : '—'}</td>
+                      <td className="r num" title={p.fcDays ? `За ${p.fcDays} ${plural(p.fcDays, 'день', 'дня', 'дней')} с выручкой` : undefined}>
+                        {fc(p.foodcost)}{p.fcDays > 0 && <span className="cn-days-n">{p.fcDays} дн.</span>}
+                      </td>
+                      <td className="r num">{p.reports}</td>
+                    </tr>
+                  ))}
                 </tbody>
-                {canteens.length > 1 && (
+                {points.length > 1 && (
                   <tfoot>
                     <tr>
                       <td>Всего</td>
-                      <td className="r num">{num(all.shipped)}</td>
+                      <td className="r num">{num(all.buy)}</td>
                       <td className="r num">{all.meat ? num(all.meat) : '—'}</td>
-                      <td className="r num">{num(all.cash)}</td>
-                      <td className="r num">{num(all.card)}</td>
-                      <td className="r num">{num(all.revenue)}</td>
+                      <td className="r num">{all.revenue ? num(all.cash) : '—'}</td>
+                      <td className="r num">{all.revenue ? num(all.card) : '—'}</td>
+                      <td className="r num">{all.revenue ? num(all.revenue) : '—'}</td>
                       <td className="r num">{fc(all.foodcost)}</td>
-                      {withCost && <td className="r num">{num(allCost)}</td>}
-                      {withCost && <td className="r num">{fc(markupRate(allCosted, allPure))}</td>}
-                      {withCost && <td className="r num">{all.revenue > 0 ? fc((allCost + all.meat) / all.revenue) : '—'}</td>}
                       <td />
                     </tr>
                   </tfoot>
@@ -141,20 +122,16 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
               </p>
             )}
             <p className="muted cn-foot">
-              Суммы в рублях. Со склада — по ценам расходных накладных; мясо — из ежедневных отчётов; выручка — из iiko там, где он подключён, иначе из отчётов; фудкост = (склад + мясо) ÷ выручка{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
-              {withCost && ' По закупочным — по последней закупке до даты отгрузки; эти колонки видит только руководитель.'}
+              Суммы в рублях. Со склада — {byCost ? 'по закупочным ценам (последняя закупка до даты отгрузки)' : 'по ценам расходных накладных'}; мясо — из ежедневных отчётов;
+              выручка — из отчётов{iikoState ? ' или iiko' : ''}. Фудкост — доля выручки, ушедшая на продукты: (склад + мясо) ÷ выручка, только за дни, где выручка известна{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
             </p>
           </section>
 
-          {canteens.length > 1 && all.revenue > 0 && (
+          {points.length > 1 && all.revenue > 0 && (
             <section className="card-box">
               <h2>Сравнение точек</h2>
-              <CompareBars realLabel={withCost} rows={canteens.map((c) => {
-                const t = totals.get(c.id)!;
-                const cost = withCost ? costOf(c.id, t.shipped) : null;
-                return { name: c.name, foodcost: t.foodcost, real: cost != null && t.revenue > 0 ? (cost + t.meat) / t.revenue : null, revenue: t.revenue };
-              }).sort((a, b) => (b.foodcost ?? -1) - (a.foodcost ?? -1))} />
-              <p className="muted cn-foot">Полоса — фудкост по расходным{withCost ? ', тёмная линия — реальный фудкост по закупочным' : ''}. Справа выручка за месяц.</p>
+              <CompareBars rows={points.map((p) => ({ name: p.name, foodcost: p.foodcost, days: p.fcDays, revenue: p.revenue })).sort((a, b) => (b.foodcost ?? -1) - (a.foodcost ?? -1))} />
+              <p className="muted cn-foot">Фудкост точки за дни с выручкой: чем короче полоса, тем меньше выручки уходит на продукты. Справа — выручка за месяц.</p>
             </section>
           )}
         </>

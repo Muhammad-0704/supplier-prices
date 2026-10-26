@@ -335,15 +335,34 @@ button { font: inherit; }
 .mx thead th.corner { vertical-align: top; }
 .mx thead th.corner .cnt { margin-top: 18px; }
 
-/* ---------- Платформа: главная с плитками ---------- */
+/* ---------- База: главная ---------- */
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--space-4); max-width: 900px; }
-.tile { display: flex; flex-direction: column; gap: 6px; padding: 20px; min-height: 120px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); text-decoration: none; }
-.tile:hover { background: var(--surface-hover); border-color: var(--ink-muted); }
-.tile__title { font-size: 18px; line-height: 24px; font-weight: 700; }
-.tile__about { color: var(--ink-muted); font-size: 13px; }
+.home { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; padding: var(--space-4) max(var(--space-4), env(safe-area-inset-right, 0px)) 48px max(var(--space-4), env(safe-area-inset-left, 0px)); }
+.home__bar { align-self: stretch; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); font-size: 13px; }
+.home__hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-3); margin: clamp(32px, 9vh, 96px) 0 var(--space-8); max-width: 620px; }
+.home__hero h1 { margin: 0; font-size: 34px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
+.home__lead { margin: 0; color: var(--ink-muted); font-size: 16px; line-height: 24px; text-wrap: balance; }
+.home__tiles { width: 100%; max-width: 760px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-4); }
+.home__notice { max-width: 560px; }
+.home-tile { position: relative; display: flex; flex-direction: column; gap: var(--space-4); padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); text-decoration: none; color: var(--ink); transition: border-color .15s, box-shadow .15s, transform .15s; overflow: hidden; }
+.home-tile::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--tile-accent); }
+.home-tile--price { --tile-accent: #f5c518; }
+.home-tile--canteens { --tile-accent: #17703f; }
+.home-tile:hover { border-color: var(--ink-muted); box-shadow: var(--shadow-panel); transform: translateY(-2px); }
+.home-tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.home-tile__head { display: flex; align-items: center; gap: var(--space-3); }
+.home-tile__head > span { display: flex; flex-direction: column; }
+.home-tile__title { font-size: 19px; line-height: 24px; font-weight: 700; }
+.home-tile__about { font-size: 13px; color: var(--ink-muted); }
+.home-tile__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.home-tile__list li { position: relative; padding-left: 18px; }
+.home-tile__list li::before { content: ''; position: absolute; left: 2px; top: 8px; width: 6px; height: 6px; border-radius: 2px; background: var(--tile-accent); }
+.home-tile__go { margin-top: auto; font-size: 14px; font-weight: 600; }
+.home-tile:hover .home-tile__go span { margin-left: 4px; }
+.home__soon { margin: var(--space-8) 0 0; font-size: 13px; color: var(--ink-muted); text-align: center; }
+@media (prefers-reduced-motion: reduce) { .home-tile { transition: none; } .home-tile:hover { transform: none; } }
 
-/* ---------- Столовые ---------- */
+/* ---------- Центр Питания ---------- */
 .brand__mark--canteens { background: var(--good); }
 .cn-sync { gap: var(--space-3); }
 .cn-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2); }
@@ -394,23 +413,25 @@ button { font: inherit; }
 .cn-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .cn-tg { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: 13px; }
 .cn-chart { margin: 0; display: flex; flex-direction: column; gap: 6px; }
-.cn-chart svg { width: 100%; height: auto; display: block; }
+.cn-chart svg { width: 100%; height: 160px; display: block; }
+.cn-chart__days { display: grid; font-size: 10px; color: var(--ink-muted); font-family: var(--font-mono); text-align: center; }
 .cn-chart__axis { stroke: var(--line); }
 .cn-chart__rev { fill: var(--good); opacity: .55; }
-.cn-chart__ship { fill: var(--ink); }
+.cn-chart__ship { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
 .cn-chart__label { font-size: 10px; fill: var(--ink-muted); font-family: var(--font-mono); }
 .cn-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); font-size: 12px; align-items: center; }
 .cn-legend i { display: inline-block; width: 12px; vertical-align: middle; margin-right: 4px; }
 .cn-legend__rev { height: 10px; background: var(--good); opacity: .55; border-radius: 2px; }
 .cn-legend__ship { height: 3px; background: var(--ink); border-radius: 2px; }
 .cn-compare { display: flex; flex-direction: column; gap: 8px; }
-.cn-compare__row { display: grid; grid-template-columns: minmax(110px, 160px) 1fr auto auto; align-items: center; gap: var(--space-2); font-size: 13px; }
+.cn-compare__row { display: grid; grid-template-columns: minmax(110px, 160px) 1fr 120px 96px; align-items: center; gap: var(--space-2); font-size: 13px; }
 .cn-compare__bar { position: relative; height: 16px; background: var(--surface-sunk); border-radius: 4px; overflow: hidden; }
 .cn-compare__bar i { position: absolute; left: 0; border-radius: 4px; }
-.cn-compare__fc { top: 0; height: 16px; background: var(--good); opacity: .5; }
+.cn-compare__fc { top: 0; height: 16px; background: var(--good); opacity: .75; }
 .cn-compare__real { top: 5px; height: 6px; background: var(--ink); }
 .cn-compare__val { min-width: 110px; text-align: right; }
 .cn-compare__rev { min-width: 70px; text-align: right; font-size: 12px; }
 @media (max-width: 560px) { .cn-compare__row { grid-template-columns: 1fr auto; } .cn-compare__bar { grid-column: 1 / -1; order: 3; } .cn-compare__rev { display: none; } }
 .cn-src { margin-left: 4px; font-size: 10px; padding: 0 4px; border-radius: 4px; background: var(--surface-sunk); color: var(--ink-muted); font-family: var(--font-sans); vertical-align: 1px; }
 .cn-mismatch { display: block; font-size: 11px; color: var(--bad); }
+.cn-days-n { display: block; font-size: 10px; color: var(--ink-muted); }

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PriceLogo } from '@/components/Logos';
 import { findActiveLink, ourBestPrices, scopeItems } from '@/lib/offers';
 import { longDate, num } from '@/lib/format';
 import { DECISION } from '@/lib/reveal';
@@ -50,7 +51,7 @@ export default async function OfferPage({ params }: { params: { token: string } 
     <main className="page offer-page">
       <header className="top">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+          <PriceLogo size={32} />
           <div>
             <h1>Запрос цен</h1>
             <div className="brand__sub">для {link.company_name}</div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Access, CanteenRole } from '@/lib/access';
+import { FoodLogo } from '../Logos';
 import { ThemeToggle } from '../ThemeToggle';
 import { Badge } from '../ui';
 
@@ -9,10 +10,10 @@ export function CanteenHeader({ me, current }: { me: Access & { canteenRole: Can
     <header className="top">
       <div className="brand">
         <Link href={me.services.length > 1 ? '/' : '/canteens'} className="brand__home" aria-label="На главную" tabIndex={-1}>
-          <span className="brand__mark brand__mark--canteens" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+          <FoodLogo size={32} />
         </Link>
         <div>
-          <Link href="/canteens" className="brand__home"><h1>Столовые</h1></Link>
+          <Link href="/canteens" className="brand__home"><h1>Центр Питания</h1></Link>
           <div className="brand__sub">
             {me.name} <Badge tone="role">{manager ? 'руководитель' : 'админ точки'}</Badge>
           </div>
@@ -21,7 +22,6 @@ export function CanteenHeader({ me, current }: { me: Access & { canteenRole: Can
       <div className="top__right">
         <nav className="nav" aria-label="Разделы">
           <Link href="/canteens" aria-current={current === 'points' ? 'page' : undefined}>Точки</Link>
-          {manager && <Link href="/canteens/markup" aria-current={current === 'markup' ? 'page' : undefined}>Наценка</Link>}
           {manager && <Link href="/canteens/access" aria-current={current === 'access' ? 'page' : undefined}>Доступы</Link>}
           {me.services.length > 1 && <Link href="/">Все сервисы</Link>}
           <ThemeToggle />

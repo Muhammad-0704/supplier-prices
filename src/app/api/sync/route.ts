@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   return handle('cron');
 }
 
-/** Кнопка «Обновить из 1С»: любой участник прайс-доски или «Столовых». */
+/** Кнопка «Обновить из 1С»: любой участник прайс-доски или «Центра Питания». */
 export async function POST() {
   const db = createClient();
   const { data: { user } } = await db.auth.getUser();

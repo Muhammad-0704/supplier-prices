@@ -58,7 +58,7 @@ export async function removeMember(form: FormData) {
   const id = String(form.get('id'));
   if (id === me.id) return;
   const admin = createAdminClient();
-  // Человек работает и в «Столовых»: убираем только доступ к прайс-доске, аккаунт остаётся
+  // Человек работает и в «Центре Питания»: убираем только доступ к прайс-доске, аккаунт остаётся
   const { data: p } = await admin.from('profiles').select('canteen_role').eq('id', id).maybeSingle();
   if (p?.canteen_role) await admin.from('profiles').update({ role: null }).eq('id', id);
   else await admin.auth.admin.deleteUser(id);

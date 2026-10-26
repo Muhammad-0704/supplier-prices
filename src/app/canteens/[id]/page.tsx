@@ -7,17 +7,17 @@ import { ReportForm, type ReportValue } from '@/components/canteens/ReportForm';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { TelegramLink } from '@/components/canteens/TelegramLink';
 import { requireCanteens } from '@/lib/access';
-import { dayTitle, isMonth, markupRate, monthRange, mskDay, mskMonth, realCost, reportMismatch, summarize } from '@/lib/canteens';
+import { dayTitle, isMonth, monthRange, mskDay, mskMonth, summarize } from '@/lib/canteens';
 import { chatKey } from '@/lib/canteens-notify';
 import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
-import { num, rubFine } from '@/lib/format';
+import { buildViews, fcText as fc } from '@/lib/canteens-view';
+import { num, plural, rubFine } from '@/lib/format';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { telegramConfigured } from '@/lib/telegram';
 
 export const dynamic = 'force-dynamic';
 
-const fc = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
 const qtyFmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
 
 /** Точка за месяц: отчёт за день, по дням — отгружено со склада и выручка, внутри дня — накладные и товары. */
@@ -42,11 +42,14 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
     manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
     loadIiko(db, [canteen], month),
   ]);
-  const cc = costTotals(costRows.filter((r) => r.canteen_id === canteen.id)).get(canteen.id);
+
   const tgLinked = !manager && telegramConfigured()
     ? !!(await createAdminClient().from('app_settings').select('key').eq('key', chatKey(me.userId)).maybeSingle()).data
     : false;
-  const t = summarize([canteen.id], customerMap([canteen]), lines, reports, iiko).get(canteen.id)!;
+  const totals = summarize([canteen.id], customerMap([canteen]), lines, reports, iiko);
+  // Руководитель — склад по закупочным ценам, админ — по ценам расходных
+  const byCost = manager && costRows.some((r) => r.canteen_id === canteen.id);
+  const t = buildViews([canteen], totals, manager ? costTotals(costRows.filter((r) => r.canteen_id === canteen.id)) : null)[0];
 
   const formReports: Record<string, ReportValue> = {};
   for (const r of [...reports, ...(recent.data ?? [])]) formReports[r.report_date] = { cash: Number(r.cash), card: Number(r.card), meat: Number(r.meat ?? 0) };
@@ -85,25 +88,20 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
           <MonthNav month={month} base={`/canteens/${canteen.id}`} />
         </div>
         <div className="pb-stats">
-          <div className="pb-stats__item"><span className="pb-stats__label">Закупки</span><span className="pb-stats__value">{num(t.shipped + t.meat)} ₽</span><span className="pb-stats__sub">склад {num(t.shipped)} · мясо {num(t.meat)}</span></div>
+          <div className="pb-stats__item"><span className="pb-stats__label">Закупки</span><span className="pb-stats__value">{num(t.buy + t.meat)} ₽</span><span className="pb-stats__sub">склад {num(t.buy)}{byCost ? ' (по закупочным)' : ''} · мясо {num(t.meat)}</span></div>
           <div className="pb-stats__item"><span className="pb-stats__label">Выручка</span><span className="pb-stats__value">{num(t.revenue)} ₽</span><span className="pb-stats__sub">нал {num(t.cash)} · безнал {num(t.card)}</span></div>
-          <div className="pb-stats__item"><span className="pb-stats__label">Фудкост</span><span className="pb-stats__value">{fc(t.foodcost)}</span><span className="pb-stats__sub">(склад + мясо) ÷ выручка</span></div>
-          {manager && cc && (() => {
-            const real = realCost(t.shipped, cc.costed, cc.cost);
-            return (
-              <div className="pb-stats__item">
-                <span className="pb-stats__label">Реальный фудкост</span>
-                <span className="pb-stats__value">{t.revenue > 0 ? fc((real + t.meat) / t.revenue) : '—'}</span>
-                <span className="pb-stats__sub">по закупочным {num(real)} ₽ · наценка {fc(markupRate(cc.costed, cc.cost))} · <Link href={`/canteens/markup?month=${month}&c=${canteen.id}`}>проверить</Link></span>
-              </div>
-            );
-          })()}
+          <div className="pb-stats__item">
+            <span className="pb-stats__label">Фудкост</span>
+            <span className="pb-stats__value">{fc(t.foodcost)}</span>
+            <span className="pb-stats__sub">{t.fcDays ? `за ${t.fcDays} ${plural(t.fcDays, 'день', 'дня', 'дней')} с выручкой` : 'нет дней с выручкой'}</span>
+          </div>
           <div className="pb-stats__item"><span className="pb-stats__label">Отчётов сдано</span><span className="pb-stats__value">{t.reports}</span></div>
         </div>
+        <p className="muted cn-foot">Фудкост — доля выручки, ушедшая на продукты: (склад + мясо) ÷ выручка. Считается только за дни, где выручка известна.</p>
 
         {days.length > 0 && <DayChart days={monthRange(month).days.filter((d) => d <= today).map((d) => {
           const x = t.byDay.get(d);
-          return { day: d, revenue: x?.revenue ?? 0, shipped: (x?.shipped ?? 0) + (x?.meat ?? 0), hasRevenue: !!x?.hasRevenue };
+          return { day: d, revenue: x?.revenue ?? 0, shipped: (x?.buy ?? 0) + (x?.meat ?? 0), hasRevenue: !!x?.hasRevenue };
         })} />}
 
         {!canteen.customerIds.length && <div className="notice">Точка не привязана к покупателю в 1С — закупки не видны. {manager ? 'Привяжите в «Доступах».' : 'Скажите руководителю.'}</div>}
@@ -113,7 +111,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
         ) : (
           <div className="cn-days">
             <div className="cn-day cn-day--head" aria-hidden="true">
-              <span>День</span><span className="r">Склад</span><span className="r">Мясо</span><span className="r">Нал</span><span className="r">Безнал</span><span className="r">Выручка</span><span className="r">Фудкост</span>
+              <span>День</span><span className="r">{byCost ? 'Склад*' : 'Склад'}</span><span className="r">Мясо</span><span className="r">Нал</span><span className="r">Безнал</span><span className="r">Выручка</span><span className="r">Фудкост</span>
             </div>
             {days.map((d) => {
               const x = t.byDay.get(d)!;
@@ -121,15 +119,15 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
               const row = (
                 <>
                   <span>{dayTitle(d)}{d === today && <span className="muted"> · сегодня</span>}{!x.reported && d <= today && <span className="cn-miss" title="Отчёт не сдан"> нет отчёта</span>}</span>
-                  <span className="r num">{x.shipped ? num(x.shipped) : '—'}</span>
+                  <span className="r num">{x.buy ? num(x.buy) : '—'}</span>
                   <span className="r num">{x.reported && x.meat ? num(x.meat) : '—'}</span>
                   <span className="r num">{x.hasRevenue ? num(x.cash) : '—'}</span>
                   <span className="r num">{x.hasRevenue ? num(x.card) : '—'}</span>
                   <span className="r num" title={x.source === 'iiko' ? `Из iiko${x.checks ? `, чеков: ${x.checks}` : ''}` : x.source === 'report' ? 'Из отчёта админа' : undefined}>
                     {x.hasRevenue ? num(x.revenue) : '—'}{x.source === 'iiko' && <span className="cn-src">iiko</span>}
-                    {reportMismatch(x) != null && <span className="cn-mismatch" title={`В отчёте админа ${num(x.reportCash + x.reportCard)} ₽ (нал ${num(x.reportCash)}, безнал ${num(x.reportCard)})`}>отчёт {reportMismatch(x)! > 0 ? '+' : ''}{num(reportMismatch(x)!)}</span>}
+                    {x.mismatch != null && <span className="cn-mismatch" title="Сумма в отчёте админа минус выручка iiko">отчёт {x.mismatch > 0 ? '+' : ''}{num(x.mismatch)}</span>}
                   </span>
-                  <span className="r num">{x.hasRevenue && x.revenue > 0 ? fc((x.shipped + x.meat) / x.revenue) : '—'}</span>
+                  <span className="r num">{x.hasRevenue && x.revenue > 0 ? fc((x.buy + x.meat) / x.revenue) : '—'}</span>
                 </>
               );
               if (!docs) return <div key={d} className="cn-day">{row}</div>;
@@ -138,7 +136,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
                   <summary className="cn-day">{row}</summary>
                   {[...docs.values()].map((ls) => (
                     <div key={ls[0].onec_doc_ref} className="cn-doc">
-                      <div className="cn-doc__head muted">Расходная {ls[0].doc_number ?? ''} · {num(ls.reduce((s, l) => s + Number(l.amount), 0))} ₽</div>
+                      <div className="cn-doc__head muted">Расходная {ls[0].doc_number ?? ''} · {num(ls.reduce((s, l) => s + Number(l.amount), 0))} ₽ по ценам расходной</div>
                       <table className="cn-lines">
                         <tbody>
                           {ls.map((l, i) => (
@@ -158,6 +156,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
             })}
           </div>
         )}
+        {byCost && days.length > 0 && <p className="muted cn-foot">* Склад — по закупочным ценам (последняя закупка до даты отгрузки). Внутри дня — накладные как в 1С, по ценам расходных.</p>}
       </section>
     </main>
   );

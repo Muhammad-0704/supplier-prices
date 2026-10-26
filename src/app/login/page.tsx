@@ -1,5 +1,6 @@
 'use client';
 import { useFormState, useFormStatus } from 'react-dom';
+import { BazaLogo } from '@/components/Logos';
 import { signIn } from './actions';
 
 function Submit() {
@@ -17,10 +18,10 @@ export default function LoginPage() {
     <main className="auth">
       <form className="auth__box" action={action}>
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <i key={i} />)}</span>
+          <BazaLogo size={36} />
           <div>
             <h1>База</h1>
-            <div className="brand__sub">Прайс-доска и столовые</div>
+            <div className="brand__sub">Прайс-доска и Центр Питания</div>
           </div>
         </div>
         <div className="field">
