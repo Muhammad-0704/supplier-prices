@@ -331,56 +331,51 @@ function Matrix(props: {
 }
 
 /**
- * Прокрутка матрицы вбок: полоса над таблицей (видна всегда, без поиска нижней) и кнопки ‹ ›.
- * Нижняя полоса тоже работает; Shift + колесо мыши — тоже.
+ * Матрицу можно тянуть мышкой влево-вправо, как карту. Клик без сдвига по-прежнему открывает товар.
+ * Нижняя полоса прокрутки и Shift + колесо тоже работают.
  */
 function MatrixScroller({ compact, children }: { compact: boolean; children: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
-  const bar = useRef<HTMLDivElement>(null);
-  const syncing = useRef(false);
-  const [size, setSize] = useState({ scroll: 0, client: 0 });
-  const [edge, setEdge] = useState({ left: true, right: false });
+  const [dragging, setDragging] = useState(false);
 
-  const update = useCallback(() => {
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     const b = box.current;
-    if (!b) return;
-    setSize({ scroll: b.scrollWidth, client: b.clientWidth });
-    setEdge({ left: b.scrollLeft <= 1, right: b.scrollLeft + b.clientWidth >= b.scrollWidth - 1 });
-  }, []);
+    // Только мышь и левая кнопка; на телефоне таблица и так листается пальцем
+    if (!b || e.pointerType !== 'mouse' || e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('input, select, textarea, a, button')) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLeft = b.scrollLeft;
+    const startTop = b.scrollTop;
+    let moved = false;
 
-  useEffect(() => {
-    const b = box.current;
-    if (!b) return;
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(b);
-    if (b.firstElementChild) ro.observe(b.firstElementChild);
-    return () => ro.disconnect();
-  }, [update]);
-
-  const follow = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
-    if (!from || !to) return;
-    if (syncing.current) { syncing.current = false; return; }
-    syncing.current = true;
-    to.scrollLeft = from.scrollLeft;
-  };
-  const step = (dir: 1 | -1) => box.current?.scrollBy({ left: dir * Math.max(300, (box.current.clientWidth - 280) * 0.8), behavior: 'smooth' });
-  const overflow = size.scroll > size.client + 1;
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (!moved) { moved = true; setDragging(true); }
+      b.scrollLeft = startLeft - dx;
+      b.scrollTop = startTop - dy;
+      ev.preventDefault();
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (moved) {
+        setDragging(false);
+        // Отпускание после перетаскивания не считается кликом по цене
+        const stop = (ce: MouseEvent) => { ce.stopPropagation(); ce.preventDefault(); };
+        window.addEventListener('click', stop, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 0);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
 
   return (
-    <div className="mx-wrap">
-      {overflow && (
-        <div className="mx-hscroll">
-          <button type="button" className="mx-hscroll__btn" aria-label="Поставщики левее" disabled={edge.left} onClick={() => step(-1)}>‹</button>
-          <div className="mx-hscroll__bar" ref={bar} onScroll={() => follow(bar.current, box.current)} aria-hidden="true">
-            <div style={{ width: size.scroll, height: 1 }} />
-          </div>
-          <button type="button" className="mx-hscroll__btn" aria-label="Поставщики правее" disabled={edge.right} onClick={() => step(1)}>›</button>
-        </div>
-      )}
-      <div className={`board${compact ? ' compact' : ''}`} ref={box} onScroll={() => { follow(box.current, bar.current); update(); }}>
-        {children}
-      </div>
+    <div className={`board board--pan${compact ? ' compact' : ''}${dragging ? ' board--dragging' : ''}`} ref={box} onPointerDown={onPointerDown}>
+      {children}
     </div>
   );
 }
