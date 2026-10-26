@@ -130,7 +130,11 @@ export interface ShipmentLine {
   price: number;
   amount: number;
   operation: string | null;
+  /** Вид цены документа; null — не указан */
+  price_type_ref: string | null;
 }
+
+const ref = (v: unknown) => { const s = str(v); return s && s !== EMPTY_REF ? s : null; };
 
 /** Расходные, строки которых нужно забрать: проведённые, не удалённые, с покупателем. */
 export function postedShipmentRefs(rows: ODataRow[]): string[] {
@@ -149,23 +153,24 @@ export function mapShipments(rows: ODataRow[], separateLines: ODataRow[]): { lin
   const cfg = ONEC.shipments;
   const byDoc = new Map<string, Map<number, ODataRow>>();
   for (const l of separateLines) {
-    const ref = str(l.Ref_Key);
-    const m = byDoc.get(ref) ?? new Map<number, ODataRow>();
+    const lineDoc = str(l.Ref_Key);
+    const m = byDoc.get(lineDoc) ?? new Map<number, ODataRow>();
     m.set(n(l.LineNumber), l);
-    byDoc.set(ref, m);
+    byDoc.set(lineDoc, m);
   }
   const lines: ShipmentLine[] = [];
   const docRefs: string[] = [];
   for (const d of rows) {
-    const ref = str(d.Ref_Key);
-    if (!ref) continue;
-    docRefs.push(ref);
+    const docRef = str(d.Ref_Key);
+    if (!docRef) continue;
+    docRefs.push(docRef);
     if (d.Posted !== true || d.DeletionMark === true) continue;
     const customer = str(d[cfg.customerField]);
     if (!customer || customer === EMPTY_REF) continue;
     const date = onecDateToIso(d.Date);
     const operation = str(d[cfg.operationField]).trim() || null;
-    const tab = [...(byDoc.get(ref)?.values() ?? [])].sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
+    const priceType = ref(d[cfg.priceTypeField]);
+    const tab = [...(byDoc.get(docRef)?.values() ?? [])].sort((a, b) => n(a.LineNumber) - n(b.LineNumber));
     tab.forEach((l, i) => {
       const item = str(l[cfg.itemField]);
       if (!item || item === EMPTY_REF) return;
@@ -173,7 +178,7 @@ export function mapShipments(rows: ODataRow[], separateLines: ODataRow[]): { lin
       const price = n(l[cfg.priceField]);
       const amount = n(l[cfg.totalField]) || n(l[cfg.sumField]) || price * qty;
       lines.push({
-        onec_doc_ref: ref,
+        onec_doc_ref: docRef,
         line_no: n(l.LineNumber) || i + 1,
         doc_number: str(d.Number).trim() || null,
         doc_date: date,
@@ -183,7 +188,61 @@ export function mapShipments(rows: ODataRow[], separateLines: ODataRow[]): { lin
         price: Math.round(price * 100) / 100,
         amount: Math.round(amount * 100) / 100,
         operation,
+        price_type_ref: priceType,
       });
+    });
+  }
+  return { lines, docRefs };
+}
+
+export interface PriceSettingLine {
+  onec_doc_ref: string;
+  line_no: number;
+  set_at: string;
+  item_ref: string;
+  price_type_ref: string | null;
+  price: number;
+  old_price: number | null;
+}
+
+/** Документы «Установка цен», строки которых нужно забрать: проведённые, не удалённые. */
+export function postedRefs(rows: ODataRow[]): string[] {
+  return rows.filter((d) => d.Posted === true && d.DeletionMark !== true).map((d) => str(d.Ref_Key)).filter(Boolean);
+}
+
+/** Установка цен → строки цен. Все документы выборки — на очистку, строки — только проведённых, с ценой больше нуля. */
+export function mapPriceSettings(rows: ODataRow[], separateLines: ODataRow[]): { lines: PriceSettingLine[]; docRefs: string[] } {
+  const cfg = ONEC.priceSettings;
+  const posted = new Map<string, ODataRow>();
+  const docRefs: string[] = [];
+  for (const d of rows) {
+    const r = str(d.Ref_Key);
+    if (!r) continue;
+    docRefs.push(r);
+    if (d.Posted === true && d.DeletionMark !== true) posted.set(r, d);
+  }
+  const seen = new Set<string>();
+  const lines: PriceSettingLine[] = [];
+  for (const l of separateLines) {
+    const docRef = str(l.Ref_Key);
+    const d = posted.get(docRef);
+    if (!d) continue;
+    const lineNo = n(l.LineNumber);
+    const key = `${docRef}:${lineNo}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const item = ref(l[cfg.itemField]);
+    const price = n(l[cfg.priceField]);
+    if (!item || price <= 0) continue;
+    const old = n(l[cfg.oldPriceField]);
+    lines.push({
+      onec_doc_ref: docRef,
+      line_no: lineNo,
+      set_at: onecDateToIso(d.Date),
+      item_ref: item,
+      price_type_ref: ref(l[cfg.priceTypeField]),
+      price: Math.round(price * 100) / 100,
+      old_price: old > 0 ? Math.round(old * 100) / 100 : null,
     });
   }
   return { lines, docRefs };

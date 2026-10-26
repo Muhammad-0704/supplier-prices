@@ -66,3 +66,42 @@ export async function loadSyncState(db: SupabaseClient): Promise<{ at: string; o
   const { data } = await db.from('sync_state').select('at, ok, message').eq('key', 'shipments').maybeSingle();
   return data ?? null;
 }
+
+// ---------- Себестоимость (только руководитель столовых; остальным база вернёт пусто) ----------
+
+export interface CostSummaryRow { canteen_id: string; day: string; amount: number; cost_amount: number | null; costed_amount: number | null; lines: number; lines_no_cost: number }
+
+export interface CostLineRow {
+  shipment_id: number; canteen_id: string; onec_doc_ref: string; doc_number: string | null; doc_date: string;
+  item_id: string | null; item_name: string; item_unit: string; qty: number; price: number; amount: number;
+  cost: number | null; cost_date: string | null; set_price: number | null; set_at: string | null;
+}
+
+const numOrNull = (v: unknown) => (v == null ? null : Number(v));
+
+export async function loadCostSummary(db: SupabaseClient, month: string): Promise<CostSummaryRow[]> {
+  const { from, to } = monthRange(month);
+  const rows = await pages<CostSummaryRow>((a, b) => db.rpc('canteen_cost_summary', { p_from: from, p_to: to }).range(a, b) as unknown as PromiseLike<{ data: CostSummaryRow[] | null; error: { message: string } | null }>);
+  return rows.map((r) => ({ ...r, amount: Number(r.amount), cost_amount: numOrNull(r.cost_amount), costed_amount: numOrNull(r.costed_amount) }));
+}
+
+export async function loadCostLines(db: SupabaseClient, month: string, canteenId?: string): Promise<CostLineRow[]> {
+  const { from, to } = monthRange(month);
+  const rows = await pages<CostLineRow>((a, b) => db.rpc('canteen_cost_lines', { p_from: from, p_to: to, p_canteen: canteenId ?? null }).range(a, b) as unknown as PromiseLike<{ data: CostLineRow[] | null; error: { message: string } | null }>);
+  return rows.map((r) => ({ ...r, qty: Number(r.qty), price: Number(r.price), amount: Number(r.amount), cost: numOrNull(r.cost), set_price: numOrNull(r.set_price) }));
+}
+
+/** Итоги себестоимости по точке: по расходным, по закупочным (где закупка известна) */
+export function costTotals(rows: CostSummaryRow[]): Map<string, { amount: number; cost: number; costed: number; noCost: number; byDay: Map<string, { cost: number; costed: number }> }> {
+  const out = new Map<string, { amount: number; cost: number; costed: number; noCost: number; byDay: Map<string, { cost: number; costed: number }> }>();
+  for (const r of rows) {
+    const t = out.get(r.canteen_id) ?? { amount: 0, cost: 0, costed: 0, noCost: 0, byDay: new Map() };
+    t.amount += r.amount;
+    t.cost += r.cost_amount ?? 0;
+    t.costed += r.costed_amount ?? 0;
+    t.noCost += r.lines_no_cost;
+    t.byDay.set(r.day, { cost: r.cost_amount ?? 0, costed: r.costed_amount ?? 0 });
+    out.set(r.canteen_id, t);
+  }
+  return out;
+}

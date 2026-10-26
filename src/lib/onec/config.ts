@@ -31,6 +31,8 @@ export const ONEC = {
     entity: 'Document_РасходнаяНакладная',
     customerField: 'Контрагент_Key',
     operationField: 'ВидОперации',
+    /** Вид цены документа: сравнивается с установленной ценой того же вида */
+    priceTypeField: 'ВидЦен_Key',
     linesField: 'Запасы',
     itemField: 'Номенклатура_Key',
     qtyField: 'Количество',
@@ -38,6 +40,15 @@ export const ONEC = {
     /** Сумма строки с НДС; если пусто — «Сумма» или цена × количество */
     totalField: 'Всего',
     sumField: 'Сумма',
+  },
+  /** Установка цен номенклатуры: продажные цены склада, по которым выписываются расходные */
+  priceSettings: {
+    entity: 'Document_УстановкаЦенНоменклатуры',
+    linesField: 'Запасы',
+    itemField: 'Номенклатура_Key',
+    priceTypeField: 'ВидЦены_Key',
+    priceField: 'Цена',
+    oldPriceField: 'ЦенаСтарая',
   },
   /** Ответ до ~20 КБ: большие передачи из 1С:Фреш за рубеж зависают */
   pageSize: 60,
@@ -51,11 +62,14 @@ export const SELECT = {
   /** Шапки накладных без табличной части: строки забираются отдельно, иначе ответ слишком большой */
   receipts: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.receipts.supplierField, ONEC.receipts.operationField],
   lines: ['Ref_Key', 'LineNumber', ONEC.receipts.itemField, ONEC.receipts.qtyField, ONEC.receipts.priceField],
-  shipments: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.shipments.customerField, ONEC.shipments.operationField],
+  shipments: ['Ref_Key', 'Number', 'Date', 'Posted', 'DeletionMark', ONEC.shipments.customerField, ONEC.shipments.operationField, ONEC.shipments.priceTypeField],
+  priceSettings: ['Ref_Key', 'Date', 'Posted', 'DeletionMark'],
+  priceSettingLines: ['Ref_Key', 'LineNumber', ONEC.priceSettings.itemField, ONEC.priceSettings.priceTypeField, ONEC.priceSettings.priceField, ONEC.priceSettings.oldPriceField],
   shipmentLines: ['Ref_Key', 'LineNumber', ONEC.shipments.itemField, ONEC.shipments.qtyField, ONEC.shipments.priceField, ONEC.shipments.sumField, ONEC.shipments.totalField],
 };
 
 export const SHIPMENT_LINES_ENTITY = `${ONEC.shipments.entity}_${ONEC.shipments.linesField}`;
+export const PRICE_SETTING_LINES_ENTITY = `${ONEC.priceSettings.entity}_${ONEC.priceSettings.linesField}`;
 
 /** Табличная часть как отдельный объект OData: Document_ПриходнаяНакладная_Запасы */
 export const LINES_ENTITY = `${ONEC.receipts.entity}_${ONEC.receipts.linesField}`;

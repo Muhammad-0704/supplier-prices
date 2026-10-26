@@ -4,8 +4,8 @@ import { CanteenHeader } from '@/components/canteens/CanteenHeader';
 import { MonthNav } from '@/components/canteens/MonthNav';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { requireCanteens } from '@/lib/access';
-import { grandTotal, isMonth, mskDay, mskMonth, summarize } from '@/lib/canteens';
-import { customerMap, loadCanteens, loadReports, loadShipments, loadSyncState } from '@/lib/canteens-data';
+import { grandTotal, isMonth, markupRate, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
+import { costTotals, customerMap, loadCanteens, loadCostSummary, loadReports, loadShipments, loadSyncState } from '@/lib/canteens-data';
 import { num, pct } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
 
@@ -21,12 +21,24 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
   if (me.canteenRole === 'admin' && canteens.length === 1) redirect(`/canteens/${canteens[0].id}`);
 
   const month = isMonth(searchParams.month) ? searchParams.month : mskMonth();
-  const [shipments, reports, sync] = await Promise.all([loadShipments(db, canteens, month), loadReports(db, canteens, month), loadSyncState(db)]);
+  const manager = me.canteenRole === 'manager';
+  const [shipments, reports, sync, costRows] = await Promise.all([
+    loadShipments(db, canteens, month), loadReports(db, canteens, month), loadSyncState(db),
+    manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
+  ]);
+  const costs = costTotals(costRows);
+  const costOf = (id: string, shipped: number) => {
+    const c = costs.get(id);
+    return c ? realCost(shipped, c.costed, c.cost) : null;
+  };
   const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports);
   const all = grandTotal(totals.values());
   const today = mskDay(Date.now());
   const isCurrent = month === mskMonth();
-  const manager = me.canteenRole === 'manager';
+  const withCost = manager && costs.size > 0;
+  let allCost = 0, allCosted = 0, allPure = 0;
+  for (const c of costs.values()) { allCosted += c.costed; allPure += c.cost; }
+  allCost = realCost(all.shipped, allCosted, allPure);
 
   return (
     <main className="page">
@@ -57,7 +69,10 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
           <section className="card-box">
             <div className="cn-head">
               <h2>По точкам</h2>
-              <MonthNav month={month} base="/canteens" />
+              <div className="cn-actions">
+                <a className="pb-btn pb-btn--sm" href={`/canteens/export?month=${month}`} download>Скачать Excel</a>
+                <MonthNav month={month} base="/canteens" />
+              </div>
             </div>
             <div className="cn-scroll">
               <table className="cn-table">
@@ -69,12 +84,17 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                     <th className="r">Безнал</th>
                     <th className="r">Выручка</th>
                     <th className="r" title="Отгружено по расходным ÷ выручка">Фудкост</th>
+                    {withCost && <th className="r" title="Те же строки по последней закупочной цене">По закупочным</th>}
+                    {withCost && <th className="r" title="По расходным ÷ по закупочным − 1">Наценка</th>}
+                    {withCost && <th className="r" title="Отгружено по закупочным ÷ выручка">Реальный фудкост</th>}
                     <th className="r">Отчётов</th>
                   </tr>
                 </thead>
                 <tbody>
                   {canteens.map((c) => {
                     const t = totals.get(c.id)!;
+                    const cost = costOf(c.id, t.shipped);
+                    const cc = costs.get(c.id);
                     return (
                       <tr key={c.id}>
                         <td><Link href={`/canteens/${c.id}?month=${month}`}>{c.name}</Link>{!c.customerIds.length && <span className="muted"> · нет покупателя 1С</span>}</td>
@@ -83,6 +103,9 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                         <td className="r num">{num(t.card)}</td>
                         <td className="r num">{num(t.revenue)}</td>
                         <td className="r num">{fc(t.foodcost)}</td>
+                        {withCost && <td className="r num">{cost != null ? num(cost) : '—'}</td>}
+                        {withCost && <td className="r num">{cc ? fc(markupRate(cc.costed, cc.cost)) : '—'}</td>}
+                        {withCost && <td className="r num">{cost != null && t.revenue > 0 ? fc(cost / t.revenue) : '—'}</td>}
                         <td className="r num">{t.reports}</td>
                       </tr>
                     );
@@ -97,6 +120,9 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                       <td className="r num">{num(all.card)}</td>
                       <td className="r num">{num(all.revenue)}</td>
                       <td className="r num">{fc(all.foodcost)}</td>
+                      {withCost && <td className="r num">{num(allCost)}</td>}
+                      {withCost && <td className="r num">{fc(markupRate(allCosted, allPure))}</td>}
+                      {withCost && <td className="r num">{all.revenue > 0 ? fc(allCost / all.revenue) : '—'}</td>}
                       <td />
                     </tr>
                   </tfoot>
@@ -105,7 +131,7 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
             </div>
             <p className="muted cn-foot">
               Суммы в рублях. Отгружено — по ценам расходных накладных склада{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
-              Мясо добавится следующим шагом.
+              {withCost && ' По закупочным — по последней закупке до даты отгрузки; эти колонки видит только руководитель.'} Мясо добавится следующим шагом.
             </p>
           </section>
         </>
