@@ -1,7 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { rub, rubFine, pct, plural, shortDate, longDate, syncLabel } from '@/lib/format';
+import { shortSupplier, softHyphens, rub, rubFine, pct, plural, shortDate, longDate, syncLabel } from '@/lib/format';
 import { getBrowserClient } from '@/lib/supabase/client';
 import type { BoardData, BoardItem, Supplier } from '@/lib/types';
 import { Button, ItemCard, PriceCell, RefreshIcon, SearchField, Segmented, StatStrip, SyncStatus } from './ui';
@@ -315,7 +315,7 @@ function Matrix(props: {
             <th className="corner">Товар / цена за ед.{sups.length < props.suppliers.length && <span className="cnt">{sups.length} из {props.suppliers.length} поставщиков</span>}</th>
             {sups.map((s) => (
               <th key={s.id} scope="col" className={s.id === supF ? 'hl' : undefined} title={`${s.name}: ${s.docs90d ?? 0} накладных за 90 дней`}>
-                {s.name}
+                <span className="sup-name">{softHyphens(shortSupplier(s.name))}</span>
                 <span className="cnt">{list.filter((it) => it.offers.some((o) => o.supplierId === s.id)).length} поз.</span>
               </th>
             ))}

@@ -54,3 +54,22 @@ describe('deriveItem', () => {
     expect(deriveItem({ ...base, offers: [] }, { now: NOW, rareDays: 30, withMoney: false })).toBeNull();
   });
 });
+
+import { shortSupplier } from '../src/lib/format';
+describe('короткое название поставщика', () => {
+  it('убирает форму собственности и сокращает ФИО предпринимателя', () => {
+    expect(shortSupplier('ИП Недорезов Илья Игоревич')).toBe('Недорезов И.\u00a0И.');
+    expect(shortSupplier('ООО «Агро-Юг»')).toBe('Агро-Юг');
+    expect(shortSupplier('ТД Землянскмолоко')).toBe('ТД Землянскмолоко');
+    expect(shortSupplier('Маруф Овощи')).toBe('Маруф Овощи');
+  });
+});
+
+import { softHyphens } from '../src/lib/format';
+describe('мягкие переносы', () => {
+  it('ставит переносы только в длинных словах', () => {
+    expect(softHyphens('ТД Землянскмолоко')).toBe('ТД Землянск\u00adмолоко');
+    expect(softHyphens('ТД Землянскмолоко').replace(/\u00ad/g, '')).toBe('ТД Землянскмолоко');
+    expect(softHyphens('Маруф Овощи')).toBe('Маруф Овощи');
+  });
+});

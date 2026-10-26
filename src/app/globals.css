@@ -58,7 +58,7 @@ button { font: inherit; }
 .select { height: var(--control-h); padding: 0 10px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; max-width: 100%; }
 .tog { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; cursor: pointer; user-select: none; padding: 0 4px; height: var(--control-h); }
 .tog input { accent-color: var(--ink); width: 16px; height: 16px; }
-.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
 .chips .pb-chip { flex: none; }
 
 /* Матрица */
@@ -301,3 +301,19 @@ button { font: inherit; }
 .settings .tabs { margin-bottom: 0; }
 .skip-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
 .skip-row:first-child { border-top: 1px solid var(--line-soft); }
+
+/* Заголовки колонок поставщиков: не больше двух строк, длинные слова переносятся */
+.mx thead th .sup-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; hyphens: manual; -webkit-hyphens: manual; overflow-wrap: break-word; }
+
+/* Полосы прокрутки в цветах сервиса */
+/* Firefox понимает только стандартные свойства; Chrome и Safari — ::-webkit-scrollbar ниже (стандартные свойства там включили бы стрелки) */
+@supports (-moz-appearance: none) { * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; } }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); background-clip: padding-box; border: 2px solid transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+:root { --scroll-thumb: rgba(27, 30, 33, .22); --scroll-thumb-hover: rgba(27, 30, 33, .42); }
+:root[data-theme="dark"] { --scroll-thumb: rgba(236, 237, 234, .22); --scroll-thumb-hover: rgba(236, 237, 234, .42); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --scroll-thumb: rgba(236, 237, 234, .22); --scroll-thumb-hover: rgba(236, 237, 234, .42); } }
