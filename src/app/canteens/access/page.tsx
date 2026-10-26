@@ -77,7 +77,7 @@ export default async function AccessPage() {
                             <summary className="pb-btn pb-btn--quiet pb-btn--sm">Закрыть доступ</summary>
                             <form action={revokeCanteenUser}>
                               <input type="hidden" name="user_id" value={p.id} />
-                              <button className="pb-btn pb-btn--sm" type="submit" style={{ color: 'var(--bad)' }}>Да, закрыть «Столовые»</button>
+                              <button className="pb-btn pb-btn--sm" type="submit" style={{ color: 'var(--bad)' }}>Да, закрыть «Центр Питания»</button>
                             </form>
                           </details>
                         )}

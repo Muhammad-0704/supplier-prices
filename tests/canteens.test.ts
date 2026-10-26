@@ -126,22 +126,22 @@ describe('столовые: наценка склада', async () => {
 
 describe('столовые: выгрузка в Excel', async () => {
   const { buildMonthWorkbook } = await import('../src/lib/canteens-export');
+  const { buildViews } = await import('../src/lib/canteens-view');
   const writeXlsxFile = (await import('write-excel-file/node')).default;
   const readXlsxFile = (await import('read-excel-file/node')).default;
-  it('итог и лист на точку; файл открывается', async () => {
+  it('итог и лист на точку; склад по закупочным; файл открывается', async () => {
     const links = new Map([['cg', 'g']]);
     const totals = summarize(['g'], links, [{ customer_id: 'cg', doc_date: '2026-10-01T06:00:00Z', amount: 1100 }], [{ canteen_id: 'g', report_date: '2026-10-01', cash: 1000, card: 3000 }]);
     const costs = new Map([['g', { cost: 1000, costed: 1100, byDay: new Map([['2026-10-01', { cost: 1000, costed: 1100 }]]) }]]);
-    const sheets = buildMonthWorkbook('2026-10', [{ id: 'g', name: 'Гастромания' }], totals, costs);
+    const points = buildViews([{ id: 'g', name: 'Гастромания' }], totals, costs);
+    const sheets = buildMonthWorkbook('2026-10', points, true);
     expect(sheets.map((s) => s.sheet)).toEqual(['Итог', 'Гастромания']);
     expect(sheets[1].data).toHaveLength(3 + 31 + 1);
-    expect(sheets[0].data[2].map((c) => (c as { value: string }).value)).toContain('Мясо');
     const buf = await writeXlsxFile(sheets as unknown as Parameters<typeof writeXlsxFile>[0]).toBuffer();
     const book = (await readXlsxFile(buf)) as unknown as { sheet: string; data: unknown[][] }[];
-    expect(book.map((s) => s.sheet)).toEqual(['Итог', 'Гастромания']);
     const g = book[0].data.find((r) => r[0] === 'Гастромания')!;
-    // склад, мясо, нал, безнал, выручка, фудкост, по закупочным
-    expect(g.slice(1, 8)).toEqual([1100, 0, 1000, 3000, 4000, 0.275, 1000]);
+    // склад по закупочным, мясо, нал, безнал, выручка, фудкост, дней с выручкой
+    expect(g.slice(1, 8)).toEqual([1000, 0, 1000, 3000, 4000, 0.25, 1]);
   });
 });
 
@@ -154,17 +154,21 @@ describe('столовые: Telegram', async () => {
     expect(t).toContain('точкам');
     expect(t).toContain('https://example.ru/canteens');
   });
-  it('сводка за день: выручка, склад, фудкост, кто не сдал', () => {
+  it('сводка за день: выручка, склад, фудкост, кто не сдал', async () => {
+    const { buildViews } = await import('../src/lib/canteens-view');
     const links = new Map([['cg', 'g'], ['cd', 'd']]);
     const totals = summarize(['g', 'd'], links,
       [{ customer_id: 'cg', doc_date: '2026-10-25T06:00:00Z', amount: 2000 }, { customer_id: 'cd', doc_date: '2026-10-25T06:00:00Z', amount: 500 }],
       [{ canteen_id: 'g', report_date: '2026-10-25', cash: 3000, card: 5000 }]);
-    const t = summaryText('2026-10-25', [{ id: 'g', name: 'Гастромания' }, { id: 'd', name: 'Донер <Дубровка>' }], totals, null);
+    const points = buildViews([{ id: 'g', name: 'Гастромания' }, { id: 'd', name: 'Донер <Дубровка>' }], totals, null);
+    const t = summaryText('2026-10-25', points, null);
+    expect(t).toContain('Центр Питания за 25.10');
     expect(t).toContain('Гастромания: выручка 8');
     expect(t).toContain('фудкост 25,0%');
     expect(t).toContain('Не сдали отчёт: Донер &lt;Дубровка&gt;');
     expect(t).not.toContain('<a href');
   });
+
 });
 
 describe('столовые: мясо в отчёте', () => {
@@ -234,5 +238,29 @@ describe('столовые: выручка из iiko', () => {
     expect(t.reports).toBe(2);
     expect(t.iikoDays).toBe(2);
     expect(t.foodcost).toBeCloseTo(13000 / 47000);
+  });
+});
+
+describe('фудкост: только за дни с выручкой и по закупочным', async () => {
+  const { buildViews, totalView } = await import('../src/lib/canteens-view');
+  it('месяц закупок не делится на выручку одного дня', () => {
+    // 10 дней отгрузок по 100 000, отчёт сдан только за один день
+    const ships = Array.from({ length: 10 }, (_, i) => ({ customer_id: 'ck', doc_date: `2026-10-${String(i + 1).padStart(2, '0')}T06:00:00Z`, amount: 100000 }));
+    const totals = summarize(['k'], new Map([['ck', 'k']]), ships, [{ canteen_id: 'k', report_date: '2026-10-05', cash: 100000, card: 200000, meat: 20000 }]);
+    const [p] = buildViews([{ id: 'k', name: 'Кронштадтский' }], totals, null);
+    expect(p.buy).toBe(1000000);
+    expect(p.fcDays).toBe(1);
+    expect(p.foodcost).toBeCloseTo(120000 / 300000); // 40%, а не 340%
+  });
+  it('у руководителя склад по закупочным за каждый день', () => {
+    const totals = summarize(['k'], new Map([['ck', 'k']]),
+      [{ customer_id: 'ck', doc_date: '2026-10-01T06:00:00Z', amount: 1100 }, { customer_id: 'ck', doc_date: '2026-10-02T06:00:00Z', amount: 2200 }],
+      [{ canteen_id: 'k', report_date: '2026-10-01', cash: 2000, card: 2000 }, { canteen_id: 'k', report_date: '2026-10-02', cash: 4000, card: 4000 }]);
+    const costs = new Map([['k', { cost: 3000, costed: 3300, byDay: new Map([['2026-10-01', { cost: 1000, costed: 1100 }], ['2026-10-02', { cost: 2000, costed: 2200 }]]) }]]);
+    const [p] = buildViews([{ id: 'k', name: 'К' }], totals, costs);
+    expect(p.buy).toBe(3000);
+    expect(p.byDay.get('2026-10-02')!.buy).toBe(2000);
+    expect(p.foodcost).toBeCloseTo(3000 / 12000);
+    expect(totalView([p])).toMatchObject({ buy: 3000, revenue: 12000, fcDays: 2 });
   });
 });

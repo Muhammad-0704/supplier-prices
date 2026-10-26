@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: { default: 'База', template: '%s · База' },
-  description: 'Сервисы склада: прайс-доска и столовые',
+  description: 'Экосистема склада: Прайс-доска и Центр Питания',
 };
 
 export const viewport: Viewport = {

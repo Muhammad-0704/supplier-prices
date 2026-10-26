@@ -33,7 +33,7 @@ export function AddCanteenUserForm({ canteens }: { canteens: { id: string; name:
         </fieldset>
       )}
       <div><Submit /></div>
-      <p className="muted" style={{ margin: 0, fontSize: 12 }}>Если у человека уже есть аккаунт в прайс-доске, укажите ту же почту — откроем ему «Столовые», пароль останется прежним.</p>
+      <p className="muted" style={{ margin: 0, fontSize: 12 }}>Если у человека уже есть аккаунт в прайс-доске, укажите ту же почту — откроем ему «Центр Питания», пароль останется прежним.</p>
       {state?.error && <p className="err" role="alert">{state.error}</p>}
       {state?.ok && <p className="pb-trend--drop" role="status" style={{ margin: 0, fontSize: 13 }}>{state.ok}</p>}
     </form>

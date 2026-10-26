@@ -1,10 +1,9 @@
-/** Месячный отчёт «Столовых» для Excel: лист «Итог» по точкам и по листу на каждую точку по дням. */
-import { dayTitle, grandTotal, markupRate, monthRange, monthTitle, realCost, type CanteenTotals } from './canteens';
+/** Месячный отчёт «Центра Питания» для Excel: лист «Итог» по точкам и по листу на каждую точку по дням. */
+import { dayTitle, monthRange, monthTitle } from './canteens';
+import { totalView, type PointView } from './canteens-view';
 
 type Cell = { value?: string | number | null; type?: StringConstructor | NumberConstructor; format?: string; fontWeight?: 'bold'; wrap?: boolean } | null;
 export interface ExportSheet { sheet: string; data: Cell[][]; columns: { width: number }[]; stickyRowsCount?: number }
-
-export interface CostInfo { cost: number; costed: number; byDay: Map<string, { cost: number; costed: number }> }
 
 const MONEY = '#,##0';
 const PCT = '0.0%';
@@ -22,40 +21,24 @@ function sheetName(name: string, used: Set<string>): string {
   return out;
 }
 
-export function buildMonthWorkbook(
-  month: string,
-  canteens: { id: string; name: string }[],
-  totals: Map<string, CanteenTotals>,
-  costs: Map<string, CostInfo> | null,
-): ExportSheet[] {
-  const withCost = !!costs && costs.size > 0;
+/**
+ * points — уже посчитанные точки (buildViews): у руководителя склад по закупочным, у админа — по расходным.
+ * Фудкост — за дни с выручкой.
+ */
+export function buildMonthWorkbook(month: string, points: PointView[], byCost: boolean): ExportSheet[] {
   const used = new Set<string>(['итог']);
+  const stockNote = byCost ? 'по закупочным ценам (последняя закупка до даты отгрузки)' : 'по ценам расходных накладных';
 
   // ----- Итог -----
-  const summaryHead = ['Точка', 'Со склада', 'Мясо', 'Наличные', 'Безнал', 'Выручка', 'Фудкост'];
-  if (withCost) summaryHead.push('По закупочным', 'Наценка склада', 'Реальный фудкост');
-  summaryHead.push('Отчётов сдано');
-  const rows: Cell[][] = [[text(`Столовые · ${monthTitle(month)}`, true)], [], summaryHead.map(head)];
-  let allCost = 0, allCosted = 0, allPure = 0;
-  for (const c of canteens) {
-    const t = totals.get(c.id);
-    if (!t) continue;
-    const row: Cell[] = [text(c.name), money(t.shipped), money(t.meat), money(t.cash), money(t.card), money(t.revenue), pct(t.foodcost)];
-    if (withCost) {
-      const ci = costs!.get(c.id);
-      const real = ci ? realCost(t.shipped, ci.costed, ci.cost) : null;
-      if (ci) { allCost += real!; allCosted += ci.costed; allPure += ci.cost; }
-      row.push(money(real), pct(ci ? markupRate(ci.costed, ci.cost) : null), pct(real != null && t.revenue > 0 ? (real + t.meat) / t.revenue : null));
-    }
-    row.push({ value: t.reports, type: Number });
-    rows.push(row);
+  const summaryHead = ['Точка', 'Со склада', 'Мясо', 'Наличные', 'Безнал', 'Выручка', 'Фудкост', 'Дней с выручкой', 'Отчётов сдано'];
+  const rows: Cell[][] = [[text(`Центр Питания · ${monthTitle(month)}`, true)], [], summaryHead.map(head)];
+  for (const p of points) {
+    rows.push([text(p.name), money(p.buy), money(p.meat), money(p.cash), money(p.card), money(p.revenue), pct(p.foodcost), { value: p.fcDays, type: Number }, { value: p.reports, type: Number }]);
   }
-  const all = grandTotal(canteens.map((c) => totals.get(c.id)).filter((t): t is CanteenTotals => !!t));
-  const total: Cell[] = [text('Всего', true), money(all.shipped, true), money(all.meat, true), money(all.cash, true), money(all.card, true), money(all.revenue, true), pct(all.foodcost, true)];
-  if (withCost) total.push(money(allCost, true), pct(markupRate(allCosted, allPure), true), pct(all.revenue > 0 ? (allCost + all.meat) / all.revenue : null, true));
-  rows.push(total);
-  rows.push([], [text('Со склада — по ценам расходных накладных; мясо — из ежедневных отчётов. Фудкост = (склад + мясо) ÷ выручка (наличные + безнал).')]);
-  if (withCost) rows.push([text('По закупочным — строки склада по последней закупочной цене до даты отгрузки; реальный фудкост = (по закупочным + мясо) ÷ выручка.')]);
+  const all = totalView(points);
+  rows.push([text('Всего', true), money(all.buy, true), money(all.meat, true), money(all.cash, true), money(all.card, true), money(all.revenue, true), pct(all.foodcost, true), null, null]);
+  rows.push([], [text(`Со склада — ${stockNote}; мясо — из ежедневных отчётов; выручка — наличные + безнал.`)]);
+  rows.push([text('Фудкост — доля выручки, ушедшая на продукты: (склад + мясо) ÷ выручка, только за дни, где выручка известна.')]);
 
   const sheets: ExportSheet[] = [{
     sheet: 'Итог',
@@ -66,31 +49,16 @@ export function buildMonthWorkbook(
 
   // ----- По точке, по дням -----
   const { days } = monthRange(month);
-  for (const c of canteens) {
-    const t = totals.get(c.id);
-    if (!t) continue;
-    const ci = costs?.get(c.id);
+  for (const p of points) {
     const h = ['День', 'Со склада', 'Мясо', 'Наличные', 'Безнал', 'Выручка', 'Фудкост'];
-    if (withCost) h.push('По закупочным', 'Реальный фудкост');
-    const data: Cell[][] = [[text(`${c.name} · ${monthTitle(month)}`, true)], [], h.map(head)];
+    const data: Cell[][] = [[text(`${p.name} · ${monthTitle(month)}`, true)], [], h.map(head)];
     for (const d of days) {
-      const x = t.byDay.get(d);
-      const row: Cell[] = [text(dayTitle(d)), money(x?.shipped || null), x?.reported && x.meat ? money(x.meat) : null, x?.hasRevenue ? money(x.cash) : null, x?.hasRevenue ? money(x.card) : null, x?.hasRevenue ? money(x.revenue) : null,
-        pct(x?.hasRevenue && x.revenue > 0 ? (x.shipped + x.meat) / x.revenue : null)];
-      if (withCost) {
-        const dc = ci?.byDay.get(d);
-        const real = dc && x ? realCost(x.shipped, dc.costed, dc.cost) : null;
-        row.push(money(real), pct(real != null && x?.hasRevenue && x.revenue > 0 ? (real + x.meat) / x.revenue : null));
-      }
-      data.push(row);
+      const x = p.byDay.get(d);
+      data.push([text(dayTitle(d)), money(x?.buy || null), x?.meat ? money(x.meat) : null, x?.hasRevenue ? money(x.cash) : null, x?.hasRevenue ? money(x.card) : null, x?.hasRevenue ? money(x.revenue) : null,
+        pct(x?.hasRevenue && x.revenue > 0 ? (x.buy + x.meat) / x.revenue : null)]);
     }
-    const foot: Cell[] = [text('Итого', true), money(t.shipped, true), money(t.meat, true), money(t.cash, true), money(t.card, true), money(t.revenue, true), pct(t.foodcost, true)];
-    if (withCost) {
-      const real = ci ? realCost(t.shipped, ci.costed, ci.cost) : null;
-      foot.push(money(real, true), pct(real != null && t.revenue > 0 ? (real + t.meat) / t.revenue : null, true));
-    }
-    data.push(foot);
-    sheets.push({ sheet: sheetName(c.name, used), data, columns: [{ width: 12 }, ...h.slice(1).map(() => ({ width: 15 }))], stickyRowsCount: 3 });
+    data.push([text('Итого', true), money(p.buy, true), money(p.meat, true), money(p.cash, true), money(p.card, true), money(p.revenue, true), pct(p.foodcost, true)]);
+    sheets.push({ sheet: sheetName(p.name, used), data, columns: [{ width: 12 }, ...h.slice(1).map(() => ({ width: 15 }))], stickyRowsCount: 3 });
   }
   return sheets;
 }

@@ -15,7 +15,7 @@ async function me() {
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('Войдите в аккаунт.');
   const { data } = await db.from('profiles').select('canteen_role').eq('id', user.id).maybeSingle();
-  if (!data?.canteen_role) throw new Error('Нет доступа к «Столовым».');
+  if (!data?.canteen_role) throw new Error('Нет доступа к «Центру Питания».');
   return { db, user, manager: data.canteen_role === 'manager' };
 }
 
@@ -51,7 +51,7 @@ async function manager() {
   return m;
 }
 
-/** Новый человек в «Столовых» (или существующий аккаунт другого сервиса) с ролью и точками. */
+/** Новый человек в «Центре Питания» (или существующий аккаунт другого сервиса) с ролью и точками. */
 export async function addCanteenUser(_prev: ActionState, form: FormData): Promise<ActionState> {
   try {
     await manager();
@@ -67,7 +67,7 @@ export async function addCanteenUser(_prev: ActionState, form: FormData): Promis
     const admin = createAdminClient();
     const acc = await ensureAccount(admin, email, password, fullName);
     if (acc.created) {
-      // Новый аккаунт: только «Столовые», прайс-доска закрыта
+      // Новый аккаунт: только «Центр Питания», прайс-доска закрыта
       const { error } = await admin.from('profiles').upsert({ id: acc.id, full_name: fullName, role: null, canteen_role: role });
       if (error) return { error: `Профиль: ${error.message}` };
     } else {
@@ -77,7 +77,7 @@ export async function addCanteenUser(_prev: ActionState, form: FormData): Promis
     await admin.from('canteen_admins').delete().eq('user_id', acc.id);
     if (role === 'admin') await admin.from('canteen_admins').insert(points.map((canteen_id) => ({ user_id: acc.id, canteen_id })));
     revalidatePath('/canteens/access');
-    return { ok: acc.created ? `${fullName} добавлен. Передайте почту и пароль — войти можно сразу.` : `У ${email} уже есть аккаунт: открыли «Столовые». Пароль прежний.` };
+    return { ok: acc.created ? `${fullName} добавлен. Передайте почту и пароль — войти можно сразу.` : `У ${email} уже есть аккаунт: открыли «Центр Питания». Пароль прежний.` };
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -97,7 +97,7 @@ export async function updateCanteenUser(form: FormData) {
   revalidatePath('/canteens/access');
 }
 
-/** Закрыть «Столовые» человеку. Аккаунт не удаляется: он мог работать и в прайс-доске. */
+/** Закрыть «Центр Питания» человеку. Аккаунт не удаляется: он мог работать и в прайс-доске. */
 export async function revokeCanteenUser(form: FormData) {
   const { user } = await manager();
   const id = String(form.get('user_id') || '');
@@ -147,7 +147,7 @@ export async function finishTelegramLink(): Promise<{ ok?: string; error?: strin
     if (!hit) return { error: 'Бот пока не получил «Старт» по вашей ссылке. Откройте ссылку, нажмите «Старт» в Telegram и попробуйте ещё раз.' };
     await admin.from('app_settings').upsert({ key: chatKey(user.id), value: hit.chatId, updated_at: new Date().toISOString() });
     await admin.from('app_settings').delete().eq('key', codeKey(user.id));
-    await sendTo(hit.chatId, 'Готово: сюда будут приходить напоминания «Столовых», если отчёт за день не сдан к 21:00.');
+    await sendTo(hit.chatId, 'Готово: сюда будут приходить напоминания «Центра Питания», если отчёт за день не сдан к 21:00.');
     revalidatePath('/canteens', 'layout');
     return { ok: 'Telegram подключён.' };
   } catch (e) {

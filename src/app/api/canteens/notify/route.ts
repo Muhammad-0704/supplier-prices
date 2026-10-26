@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SITE_URL } from '@/lib/alert-runner';
 import { mskDay, mskMonth, summarize } from '@/lib/canteens';
-import { customerMap, loadCanteens, loadIiko, loadReports, loadShipments } from '@/lib/canteens-data';
+import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments } from '@/lib/canteens-data';
+import { buildViews } from '@/lib/canteens-view';
 import { chatKey, reminderText, summaryText } from '@/lib/canteens-notify';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { notify, sendTo, telegramConfigured } from '@/lib/telegram';
@@ -55,9 +56,13 @@ export async function GET(request: NextRequest) {
   if (kind === 'summary') {
     const yesterday = mskDay(Date.now() - 86_400_000);
     const month = yesterday.slice(0, 7);
-    const [shipments, reports, iiko] = await Promise.all([loadShipments(db, canteens, month), loadReports(db, canteens, month), loadIiko(db, canteens, month)]);
+    const [shipments, reports, iiko, costRows] = await Promise.all([
+      loadShipments(db, canteens, month), loadReports(db, canteens, month), loadIiko(db, canteens, month),
+      loadCostSummary(db, month).catch(() => []),
+    ]);
     const totals = summarize(canteens.map((c) => c.id), customerMap(canteens), shipments, reports, iiko);
-    await notify(db, summaryText(yesterday, canteens, totals, SITE_URL));
+    // Сводка руководителю: склад по закупочным ценам (если база отдала себестоимость)
+    await notify(db, summaryText(yesterday, buildViews(canteens, totals, costTotals(costRows)), SITE_URL));
     return NextResponse.json({ ok: true, message: `Сводка за ${yesterday} отправлена.`, month: month === mskMonth() ? 'current' : 'previous' });
   }
 
