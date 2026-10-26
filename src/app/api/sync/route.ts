@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { runShipmentsSync } from '@/lib/shipments-sync';
+import { runPriceSettingsSync, runShipmentsSync } from '@/lib/shipments-sync';
 import { makeOneCClient, runSync } from '@/lib/sync';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,8 @@ async function handle(trigger: 'manual' | 'cron') {
   const result = await runSync(db, trigger, onec);
   // Расходные на точки — после справочников; их сбой не мешает прайс-доске
   const shipments = result.ok ? await runShipmentsSync(db, onec) : null;
-  return NextResponse.json({ ...result, shipments }, { status: result.ok ? 200 : 502 });
+  const priceSettings = result.ok ? await runPriceSettingsSync(db, onec) : null;
+  return NextResponse.json({ ...result, shipments, priceSettings }, { status: result.ok ? 200 : 502 });
 }
 
 /** Расписание: Vercel Cron и Supabase pg_cron присылают Authorization: Bearer <CRON_SECRET>. */

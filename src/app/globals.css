@@ -386,3 +386,9 @@ button { font: inherit; }
 .cn-checks .tog { height: 30px; }
 .cn-fieldset { border: none; padding: 0; margin: 0; }
 .cn-fieldset legend { font-size: 12px; font-weight: 600; color: var(--ink-muted); padding: 0; margin-bottom: 4px; }
+.cn-table--dense th, .cn-table--dense td { padding: 7px 6px; font-size: 13px; }
+.cn-wrap { white-space: normal !important; min-width: 180px; }
+.cn-neg { color: var(--bad); }
+.cn-pos { color: var(--ink-muted); }
+.cn-real { color: var(--ink-muted); font-size: 12px; }
+.cn-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }

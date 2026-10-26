@@ -121,3 +121,55 @@ export function canEditDay(day: string, manager: boolean, now = Date.now()): boo
   if (day > today) return false;
   return manager || day >= mskDay(now - 86_400_000);
 }
+
+// ---------- Наценка склада ----------
+
+/** Наценка склада на закупочную цену */
+export const MARKUP = 0.1;
+/** Округление в «Установке цен»: до рубля */
+export const ROUNDING = 1;
+
+export type MarkupIssue = 'ok' | 'no_cost' | 'below_cost' | 'manual' | 'low' | 'high';
+
+export interface CostLine { price: number; qty: number; cost: number | null; set_price: number | null }
+
+/**
+ * Проверка строки расходной:
+ *  below_cost — продали дешевле последней закупки;
+ *  manual     — цена в накладной не совпадает с установленной (поправили руками);
+ *  low / high — установленная цена отстаёт от «последняя закупка + 10%» больше чем на округление
+ *               (после подорожания или подешевления цену не переустановили).
+ */
+export function markupIssue(l: CostLine): MarkupIssue {
+  if (l.cost == null || l.cost <= 0) return 'no_cost';
+  if (l.price < l.cost - 0.005) return 'below_cost';
+  if (l.set_price != null && Math.abs(l.price - l.set_price) > 0.01) return 'manual';
+  const expected = l.cost * (1 + MARKUP);
+  const base = l.set_price ?? l.price;
+  if (base < expected - ROUNDING) return 'low';
+  if (base > expected + ROUNDING) return 'high';
+  return 'ok';
+}
+
+/** Ожидаемая цена: последняя закупка + 10% */
+export const expectedPrice = (cost: number) => Math.round(cost * (1 + MARKUP) * 100) / 100;
+
+/** Сколько наценки недополучено по строке (только когда цена ниже ожидаемой) */
+export function markupGap(l: CostLine): number {
+  if (l.cost == null) return 0;
+  const gap = (l.cost * (1 + MARKUP) - l.price) * l.qty;
+  return gap > 0 ? Math.round(gap * 100) / 100 : 0;
+}
+
+/** Наценка склада: по расходным ÷ по закупочным − 1 (только строки, где известна закупка) */
+export function markupRate(costedAmount: number, costAmount: number): number | null {
+  return costAmount > 0 ? costedAmount / costAmount - 1 : null;
+}
+
+/**
+ * Отгружено по закупочным ценам. Строки, где закупка неизвестна, оцениваются как «по расходной ÷ 1,1»,
+ * чтобы реальный фудкост не занижался из-за пары товаров без истории закупок.
+ */
+export function realCost(amount: number, costed: number, cost: number): number {
+  return Math.round((cost + Math.max(0, amount - costed) / (1 + MARKUP)) * 100) / 100;
+}

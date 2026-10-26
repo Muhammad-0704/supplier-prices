@@ -98,3 +98,45 @@ describe('расходные накладные из 1С', () => {
     expect(out[2].amount).toBe(30);
   });
 });
+
+describe('столовые: наценка склада', async () => {
+  const { markupIssue, markupGap, markupRate, realCost } = await import('../src/lib/canteens');
+  it('по установленной цене и «закупка + 10%»', () => {
+    expect(markupIssue({ price: 110, qty: 1, cost: 100, set_price: 110 })).toBe('ok');
+    expect(markupIssue({ price: 111, qty: 1, cost: 100.5, set_price: 111 })).toBe('ok'); // округление до рубля
+    expect(markupIssue({ price: 95, qty: 1, cost: 100, set_price: 110 })).toBe('below_cost');
+    expect(markupIssue({ price: 120, qty: 1, cost: 100, set_price: 110 })).toBe('manual');
+    expect(markupIssue({ price: 105, qty: 1, cost: 100, set_price: 105 })).toBe('low');
+    expect(markupIssue({ price: 130, qty: 1, cost: 100, set_price: 130 })).toBe('high');
+    expect(markupIssue({ price: 105, qty: 1, cost: 100, set_price: null })).toBe('low');
+    expect(markupIssue({ price: 105, qty: 1, cost: null, set_price: 105 })).toBe('no_cost');
+  });
+  it('недополучено и наценка', () => {
+    expect(markupGap({ price: 105, qty: 4, cost: 100, set_price: 105 })).toBe(20);
+    expect(markupGap({ price: 120, qty: 4, cost: 100, set_price: 120 })).toBe(0);
+    expect(markupRate(1150, 1000)).toBeCloseTo(0.15);
+    expect(markupRate(0, 0)).toBeNull();
+  });
+  it('реальная себестоимость: строки без закупки оцениваются как ÷ 1,1', () => {
+    expect(realCost(1210, 1100, 1000)).toBe(1100);
+  });
+});
+
+describe('столовые: выгрузка в Excel', async () => {
+  const { buildMonthWorkbook } = await import('../src/lib/canteens-export');
+  const writeXlsxFile = (await import('write-excel-file/node')).default;
+  const readXlsxFile = (await import('read-excel-file/node')).default;
+  it('итог и лист на точку; файл открывается', async () => {
+    const links = new Map([['cg', 'g']]);
+    const totals = summarize(['g'], links, [{ customer_id: 'cg', doc_date: '2026-10-01T06:00:00Z', amount: 1100 }], [{ canteen_id: 'g', report_date: '2026-10-01', cash: 1000, card: 3000 }]);
+    const costs = new Map([['g', { cost: 1000, costed: 1100, byDay: new Map([['2026-10-01', { cost: 1000, costed: 1100 }]]) }]]);
+    const sheets = buildMonthWorkbook('2026-10', [{ id: 'g', name: 'Гастромания' }], totals, costs);
+    expect(sheets.map((s) => s.sheet)).toEqual(['Итог', 'Гастромания']);
+    expect(sheets[1].data).toHaveLength(3 + 31 + 1);
+    const buf = await writeXlsxFile(sheets as unknown as Parameters<typeof writeXlsxFile>[0]).toBuffer();
+    const book = (await readXlsxFile(buf)) as unknown as { sheet: string; data: unknown[][] }[];
+    expect(book.map((s) => s.sheet)).toEqual(['Итог', 'Гастромания']);
+    const g = book[0].data.find((r) => r[0] === 'Гастромания')!;
+    expect(g.slice(1, 7)).toEqual([1100, 1000, 3000, 4000, 0.275, 1000]);
+  });
+});

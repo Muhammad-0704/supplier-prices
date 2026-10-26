@@ -3,7 +3,7 @@ import type { Access, CanteenRole } from '@/lib/access';
 import { ThemeToggle } from '../ThemeToggle';
 import { Badge } from '../ui';
 
-export function CanteenHeader({ me, current }: { me: Access & { canteenRole: CanteenRole }; current: 'points' | 'access' }) {
+export function CanteenHeader({ me, current }: { me: Access & { canteenRole: CanteenRole }; current: 'points' | 'markup' | 'access' }) {
   const manager = me.canteenRole === 'manager';
   return (
     <header className="top">
@@ -21,6 +21,7 @@ export function CanteenHeader({ me, current }: { me: Access & { canteenRole: Can
       <div className="top__right">
         <nav className="nav" aria-label="Разделы">
           <Link href="/canteens" aria-current={current === 'points' ? 'page' : undefined}>Точки</Link>
+          {manager && <Link href="/canteens/markup" aria-current={current === 'markup' ? 'page' : undefined}>Наценка</Link>}
           {manager && <Link href="/canteens/access" aria-current={current === 'access' ? 'page' : undefined}>Доступы</Link>}
           {me.services.length > 1 && <Link href="/">Все сервисы</Link>}
           <ThemeToggle />

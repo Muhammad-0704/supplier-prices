@@ -5,8 +5,8 @@ import { MonthNav } from '@/components/canteens/MonthNav';
 import { ReportForm, type ReportValue } from '@/components/canteens/ReportForm';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { requireCanteens } from '@/lib/access';
-import { dayTitle, isMonth, mskDay, mskMonth, summarize } from '@/lib/canteens';
-import { customerMap, loadCanteens, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
+import { dayTitle, isMonth, markupRate, mskDay, mskMonth, realCost, summarize } from '@/lib/canteens';
+import { costTotals, customerMap, loadCanteens, loadCostSummary, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
 import { num, rubFine } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
 
@@ -29,12 +29,14 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
   const today = mskDay(now);
   const yesterday = mskDay(now - 86_400_000);
 
-  const [lines, reports, recent, sync] = await Promise.all([
+  const [lines, reports, recent, sync, costRows] = await Promise.all([
     loadShipments(db, [canteen], month, true),
     loadReports(db, [canteen], month),
     db.from('daily_reports').select('report_date, cash, card').eq('canteen_id', canteen.id).gte('report_date', yesterday),
     loadSyncState(db),
+    manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
   ]);
+  const cc = costTotals(costRows.filter((r) => r.canteen_id === canteen.id)).get(canteen.id);
   const t = summarize([canteen.id], customerMap([canteen]), lines, reports).get(canteen.id)!;
 
   const formReports: Record<string, ReportValue> = {};
@@ -76,6 +78,16 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
           <div className="pb-stats__item"><span className="pb-stats__label">Отгружено со склада</span><span className="pb-stats__value">{num(t.shipped)} ₽</span></div>
           <div className="pb-stats__item"><span className="pb-stats__label">Выручка</span><span className="pb-stats__value">{num(t.revenue)} ₽</span><span className="pb-stats__sub">нал {num(t.cash)} · безнал {num(t.card)}</span></div>
           <div className="pb-stats__item"><span className="pb-stats__label">Фудкост</span><span className="pb-stats__value">{fc(t.foodcost)}</span><span className="pb-stats__sub">склад ÷ выручка</span></div>
+          {manager && cc && (() => {
+            const real = realCost(t.shipped, cc.costed, cc.cost);
+            return (
+              <div className="pb-stats__item">
+                <span className="pb-stats__label">Реальный фудкост</span>
+                <span className="pb-stats__value">{t.revenue > 0 ? fc(real / t.revenue) : '—'}</span>
+                <span className="pb-stats__sub">по закупочным {num(real)} ₽ · наценка {fc(markupRate(cc.costed, cc.cost))} · <Link href={`/canteens/markup?month=${month}&c=${canteen.id}`}>проверить</Link></span>
+              </div>
+            );
+          })()}
           <div className="pb-stats__item"><span className="pb-stats__label">Отчётов сдано</span><span className="pb-stats__value">{t.reports}</span></div>
         </div>
 
