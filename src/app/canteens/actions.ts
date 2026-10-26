@@ -19,7 +19,7 @@ async function me() {
   return { db, user, manager: data.canteen_role === 'manager' };
 }
 
-/** Ежедневный отчёт точки: наличные и безнал за день. Повторная отправка исправляет отчёт. */
+/** Ежедневный отчёт точки: наличные, безнал и сумма мяса по накладным за день. Повторная отправка исправляет отчёт. */
 export async function saveReport(_prev: ActionState, form: FormData): Promise<ActionState> {
   try {
     const { db, user, manager } = await me();
@@ -27,15 +27,16 @@ export async function saveReport(_prev: ActionState, form: FormData): Promise<Ac
     const day = String(form.get('report_date') || '');
     const cash = parseMoney(form.get('cash'));
     const card = parseMoney(form.get('card'));
+    const meat = parseMoney(form.get('meat'));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { error: 'Выберите дату.' };
-    if (cash == null || card == null) return { error: 'Суммы — числом, например 12500 или 12500,50.' };
+    if (cash == null || card == null || meat == null) return { error: 'Суммы — числом, например 12500 или 12500,50.' };
     if (!canEditDay(day, manager)) return { error: manager ? 'Отчёт за будущий день сдать нельзя.' : 'Сдать или исправить можно отчёт за сегодня и вчера. За более ранний день — попросите руководителя.' };
 
     const { data: existing } = await db.from('daily_reports').select('id').eq('canteen_id', canteenId).eq('report_date', day).maybeSingle();
     const now = new Date().toISOString();
     const { error } = existing
-      ? await db.from('daily_reports').update({ cash, card, updated_by: user.id, updated_at: now }).eq('id', existing.id)
-      : await db.from('daily_reports').insert({ canteen_id: canteenId, report_date: day, cash, card, created_by: user.id, updated_by: user.id });
+      ? await db.from('daily_reports').update({ cash, card, meat, updated_by: user.id, updated_at: now }).eq('id', existing.id)
+      : await db.from('daily_reports').insert({ canteen_id: canteenId, report_date: day, cash, card, meat, created_by: user.id, updated_by: user.id });
     if (error) return { error: error.message.includes('row-level security') ? 'Нет права сдавать отчёт за эту точку или эту дату.' : `Не сохранилось: ${error.message}` };
     revalidatePath('/canteens', 'layout');
     return { ok: existing ? 'Отчёт исправлен.' : 'Отчёт сохранён.' };

@@ -3,7 +3,7 @@
 const n0 = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const short = (v: number) => (v >= 1_000_000 ? `${(v / 1_000_000).toFixed(1).replace('.', ',')} млн` : v >= 1000 ? `${Math.round(v / 1000)} тыс` : n0.format(v));
 
-/** Выручка и отгрузки со склада по дням месяца: столбик — выручка, засечка — склад. */
+/** Выручка и закупки по дням месяца: столбик — выручка, засечка — склад + мясо. */
 export function DayChart({ days }: { days: { day: string; revenue: number; shipped: number; reported: boolean }[] }) {
   const max = Math.max(1, ...days.map((d) => Math.max(d.revenue, d.shipped)));
   const W = 640, H = 170, top = 10, bottom = 22, left = 4, right = 4;
@@ -11,14 +11,14 @@ export function DayChart({ days }: { days: { day: string; revenue: number; shipp
   const y = (v: number) => top + (H - top - bottom) * (1 - v / max);
   return (
     <figure className="cn-chart">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Выручка и отгрузки со склада по дням">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Выручка и закупки по дням">
         <line x1={left} x2={W - right} y1={H - bottom} y2={H - bottom} className="cn-chart__axis" />
         {days.map((d, i) => {
           const x = left + i * bw;
           const dayNo = Number(d.day.slice(8));
           return (
             <g key={d.day}>
-              <title>{`${dayNo}: выручка ${d.reported ? n0.format(d.revenue) + ' ₽' : 'нет отчёта'}, склад ${n0.format(d.shipped)} ₽`}</title>
+              <title>{`${dayNo}: выручка ${d.reported ? n0.format(d.revenue) + ' ₽' : 'нет отчёта'}, закупки ${n0.format(d.shipped)} ₽`}</title>
               {d.reported && d.revenue > 0 && <rect x={x + bw * 0.15} width={bw * 0.7} y={y(d.revenue)} height={H - bottom - y(d.revenue)} rx={2} className="cn-chart__rev" />}
               {d.shipped > 0 && <rect x={x + bw * 0.05} width={bw * 0.9} y={y(d.shipped) - 1.5} height={3} rx={1.5} className="cn-chart__ship" />}
               {(dayNo === 1 || dayNo % 5 === 0) && <text x={x + bw / 2} y={H - 6} textAnchor="middle" className="cn-chart__label">{dayNo}</text>}
@@ -28,7 +28,7 @@ export function DayChart({ days }: { days: { day: string; revenue: number; shipp
       </svg>
       <figcaption className="cn-legend">
         <span><i className="cn-legend__rev" /> выручка</span>
-        <span><i className="cn-legend__ship" /> отгружено со склада</span>
+        <span><i className="cn-legend__ship" /> закупки (склад + мясо)</span>
         <span className="muted">макс. {short(max)} ₽</span>
       </figcaption>
     </figure>

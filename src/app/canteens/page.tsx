@@ -80,14 +80,15 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                 <thead>
                   <tr>
                     <th>Точка</th>
-                    <th className="r">Отгружено со склада</th>
+                    <th className="r">Со склада</th>
+                    <th className="r" title="Сумма мяса из ежедневных отчётов (по накладным мясного магазина)">Мясо</th>
                     <th className="r">Наличные</th>
                     <th className="r">Безнал</th>
                     <th className="r">Выручка</th>
-                    <th className="r" title="Отгружено по расходным ÷ выручка">Фудкост</th>
+                    <th className="r" title="(Склад + мясо) ÷ выручка">Фудкост</th>
                     {withCost && <th className="r" title="Те же строки по последней закупочной цене">По закупочным</th>}
                     {withCost && <th className="r" title="По расходным ÷ по закупочным − 1">Наценка</th>}
-                    {withCost && <th className="r" title="Отгружено по закупочным ÷ выручка">Реальный фудкост</th>}
+                    {withCost && <th className="r" title="(Склад по закупочным + мясо) ÷ выручка">Реальный фудкост</th>}
                     <th className="r">Отчётов</th>
                   </tr>
                 </thead>
@@ -100,13 +101,14 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                       <tr key={c.id}>
                         <td><Link href={`/canteens/${c.id}?month=${month}`}>{c.name}</Link>{!c.customerIds.length && <span className="muted"> · нет покупателя 1С</span>}</td>
                         <td className="r num">{num(t.shipped)}</td>
+                        <td className="r num">{t.meat ? num(t.meat) : '—'}</td>
                         <td className="r num">{num(t.cash)}</td>
                         <td className="r num">{num(t.card)}</td>
                         <td className="r num">{num(t.revenue)}</td>
                         <td className="r num">{fc(t.foodcost)}</td>
                         {withCost && <td className="r num">{cost != null ? num(cost) : '—'}</td>}
                         {withCost && <td className="r num">{cc ? fc(markupRate(cc.costed, cc.cost)) : '—'}</td>}
-                        {withCost && <td className="r num">{cost != null && t.revenue > 0 ? fc(cost / t.revenue) : '—'}</td>}
+                        {withCost && <td className="r num">{cost != null && t.revenue > 0 ? fc((cost + t.meat) / t.revenue) : '—'}</td>}
                         <td className="r num">{t.reports}</td>
                       </tr>
                     );
@@ -117,13 +119,14 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
                     <tr>
                       <td>Всего</td>
                       <td className="r num">{num(all.shipped)}</td>
+                      <td className="r num">{all.meat ? num(all.meat) : '—'}</td>
                       <td className="r num">{num(all.cash)}</td>
                       <td className="r num">{num(all.card)}</td>
                       <td className="r num">{num(all.revenue)}</td>
                       <td className="r num">{fc(all.foodcost)}</td>
                       {withCost && <td className="r num">{num(allCost)}</td>}
                       {withCost && <td className="r num">{fc(markupRate(allCosted, allPure))}</td>}
-                      {withCost && <td className="r num">{all.revenue > 0 ? fc(allCost / all.revenue) : '—'}</td>}
+                      {withCost && <td className="r num">{all.revenue > 0 ? fc((allCost + all.meat) / all.revenue) : '—'}</td>}
                       <td />
                     </tr>
                   </tfoot>
@@ -131,8 +134,8 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
               </table>
             </div>
             <p className="muted cn-foot">
-              Суммы в рублях. Отгружено — по ценам расходных накладных склада{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
-              {withCost && ' По закупочным — по последней закупке до даты отгрузки; эти колонки видит только руководитель.'} Мясо добавится следующим шагом.
+              Суммы в рублях. Со склада — по ценам расходных накладных; мясо — из ежедневных отчётов; фудкост = (склад + мясо) ÷ выручка{all.revenue > 0 ? `; доля безнала ${pct(all.card / all.revenue)}` : ''}.
+              {withCost && ' По закупочным — по последней закупке до даты отгрузки; эти колонки видит только руководитель.'}
             </p>
           </section>
 
@@ -142,7 +145,7 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
               <CompareBars realLabel={withCost} rows={canteens.map((c) => {
                 const t = totals.get(c.id)!;
                 const cost = withCost ? costOf(c.id, t.shipped) : null;
-                return { name: c.name, foodcost: t.foodcost, real: cost != null && t.revenue > 0 ? cost / t.revenue : null, revenue: t.revenue };
+                return { name: c.name, foodcost: t.foodcost, real: cost != null && t.revenue > 0 ? (cost + t.meat) / t.revenue : null, revenue: t.revenue };
               }).sort((a, b) => (b.foodcost ?? -1) - (a.foodcost ?? -1))} />
               <p className="muted cn-foot">Полоса — фудкост по расходным{withCost ? ', тёмная линия — реальный фудкост по закупочным' : ''}. Справа выручка за месяц.</p>
             </section>

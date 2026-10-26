@@ -368,7 +368,7 @@ button { font: inherit; }
 .cn-foot { margin: 0; font-size: 12px; }
 .cn-report .row-form { align-items: flex-end; }
 .cn-days { display: flex; flex-direction: column; overflow-x: auto; }
-.cn-day { display: grid; grid-template-columns: minmax(150px, 1.6fr) repeat(5, minmax(78px, 1fr)); gap: 8px; padding: 10px 8px; border-bottom: 1px solid var(--line-soft); font-size: 14px; min-width: 600px; }
+.cn-day { display: grid; grid-template-columns: minmax(150px, 1.6fr) repeat(6, minmax(72px, 1fr)); gap: 8px; padding: 10px 8px; border-bottom: 1px solid var(--line-soft); font-size: 14px; min-width: 660px; }
 .cn-day--head { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-muted); }
 .cn-daybox > summary { cursor: pointer; list-style: none; }
 .cn-daybox > summary::-webkit-details-marker { display: none; }

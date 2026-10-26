@@ -45,9 +45,11 @@ export function dayTitle(day: string): string {
 }
 
 export interface ShipmentRow { customer_id: string; doc_date: string; amount: number }
-export interface ReportRow { canteen_id: string; report_date: string; cash: number; card: number }
+/** Ежедневный отчёт точки. meat — сумма мяса за день по накладным мясного магазина (админ пишет сам) */
+export interface ReportRow { canteen_id: string; report_date: string; cash: number; card: number; meat?: number }
 
-export interface DayTotals { shipped: number; cash: number; card: number; revenue: number; reported: boolean }
+/** shipped — со склада по расходным; meat — мясо из отчёта; закупки точки = shipped + meat */
+export interface DayTotals { shipped: number; meat: number; cash: number; card: number; revenue: number; reported: boolean }
 export interface CanteenTotals extends Omit<DayTotals, 'reported'> {
   /** Дней с отчётом */
   reports: number;
@@ -58,6 +60,11 @@ export interface CanteenTotals extends Omit<DayTotals, 'reported'> {
 
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
+/** Фудкост = закупки (склад + мясо) ÷ выручка; null, если выручки нет */
+export function foodcost(purchases: number, revenue: number): number | null {
+  return revenue > 0 ? purchases / revenue : null;
+}
+
 /**
  * Сводка по точкам: отгружено со склада по расходным, наличные и безнал из отчётов, фудкост.
  * customerCanteen — какому покупателю 1С какая точка соответствует.
@@ -66,12 +73,12 @@ export function summarize(canteenIds: string[], customerCanteen: Map<string, str
   const out = new Map<string, CanteenTotals>();
   const get = (c: string) => {
     let t = out.get(c);
-    if (!t) { t = { shipped: 0, cash: 0, card: 0, revenue: 0, reports: 0, foodcost: null, byDay: new Map() }; out.set(c, t); }
+    if (!t) { t = { shipped: 0, meat: 0, cash: 0, card: 0, revenue: 0, reports: 0, foodcost: null, byDay: new Map() }; out.set(c, t); }
     return t;
   };
   const day = (t: CanteenTotals, d: string) => {
     let x = t.byDay.get(d);
-    if (!x) { x = { shipped: 0, cash: 0, card: 0, revenue: 0, reported: false }; t.byDay.set(d, x); }
+    if (!x) { x = { shipped: 0, meat: 0, cash: 0, card: 0, revenue: 0, reported: false }; t.byDay.set(d, x); }
     return x;
   };
   canteenIds.forEach(get);
@@ -86,24 +93,24 @@ export function summarize(canteenIds: string[], customerCanteen: Map<string, str
   for (const r of reports) {
     if (!out.has(r.canteen_id)) continue;
     const t = get(r.canteen_id);
-    const cash = Number(r.cash) || 0, card = Number(r.card) || 0;
-    t.cash += cash; t.card += card; t.revenue += cash + card; t.reports += 1;
+    const cash = Number(r.cash) || 0, card = Number(r.card) || 0, meat = Number(r.meat) || 0;
+    t.cash += cash; t.card += card; t.meat += meat; t.revenue += cash + card; t.reports += 1;
     const x = day(t, r.report_date);
-    x.cash += cash; x.card += card; x.revenue += cash + card; x.reported = true;
+    x.cash += cash; x.card += card; x.meat += meat; x.revenue += cash + card; x.reported = true;
   }
   for (const t of out.values()) {
-    t.shipped = r2(t.shipped); t.cash = r2(t.cash); t.card = r2(t.card); t.revenue = r2(t.revenue);
-    t.foodcost = t.revenue > 0 ? t.shipped / t.revenue : null;
+    t.shipped = r2(t.shipped); t.meat = r2(t.meat); t.cash = r2(t.cash); t.card = r2(t.card); t.revenue = r2(t.revenue);
+    t.foodcost = foodcost(t.shipped + t.meat, t.revenue);
   }
   return out;
 }
 
 /** Итог по всем точкам */
-export function grandTotal(totals: Iterable<CanteenTotals>): { shipped: number; cash: number; card: number; revenue: number; foodcost: number | null } {
-  let shipped = 0, cash = 0, card = 0;
-  for (const t of totals) { shipped += t.shipped; cash += t.cash; card += t.card; }
+export function grandTotal(totals: Iterable<CanteenTotals>): { shipped: number; meat: number; cash: number; card: number; revenue: number; foodcost: number | null } {
+  let shipped = 0, meat = 0, cash = 0, card = 0;
+  for (const t of totals) { shipped += t.shipped; meat += t.meat; cash += t.cash; card += t.card; }
   const revenue = cash + card;
-  return { shipped: r2(shipped), cash: r2(cash), card: r2(card), revenue: r2(revenue), foodcost: revenue > 0 ? shipped / revenue : null };
+  return { shipped: r2(shipped), meat: r2(meat), cash: r2(cash), card: r2(card), revenue: r2(revenue), foodcost: foodcost(shipped + meat, revenue) };
 }
 
 /** Сумма из формы: «12 500,50» → 12500.5; пусто → 0; мусор → null */

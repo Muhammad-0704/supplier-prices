@@ -27,26 +27,28 @@ export function summaryText(
   siteUrl: string | null,
 ): string {
   const lines: string[] = [`<b>Столовые за ${dayTitle(day)}</b>`];
-  let rev = 0, ship = 0, mRev = 0, mShip = 0;
+  let rev = 0, ship = 0, meat = 0, mRev = 0, mBuy = 0;
   const missing: string[] = [];
   for (const c of canteens) {
     const t = totals.get(c.id);
     const d = t?.byDay.get(day);
     const shipped = d?.shipped ?? 0;
     ship += shipped;
-    if (t) { mRev += t.revenue; mShip += t.shipped; }
+    if (t) { mRev += t.revenue; mBuy += t.shipped + t.meat; }
     if (!d?.reported) {
       missing.push(c.name);
       lines.push(`${esc(c.name)}: отчёта нет · склад ${money(shipped)}`);
       continue;
     }
     rev += d.revenue;
-    lines.push(`${esc(c.name)}: выручка ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}) · склад ${money(shipped)} · фудкост ${pct(d.revenue > 0 ? shipped / d.revenue : null)}`);
+    meat += d.meat;
+    const meatPart = d.meat ? ` · мясо ${money(d.meat)}` : '';
+    lines.push(`${esc(c.name)}: выручка ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}) · склад ${money(shipped)}${meatPart} · фудкост ${pct(d.revenue > 0 ? (shipped + d.meat) / d.revenue : null)}`);
   }
   lines.push('');
-  lines.push(`<b>Всего:</b> выручка ${money(rev)} · склад ${money(ship)}`);
+  lines.push(`<b>Всего:</b> выручка ${money(rev)} · склад ${money(ship)} · мясо ${money(meat)}`);
   if (missing.length) lines.push(`Не сдали отчёт: ${missing.map(esc).join(', ')}`);
-  lines.push(`С начала месяца: выручка ${money(mRev)} · склад ${money(mShip)} · фудкост ${pct(mRev > 0 ? mShip / mRev : null)}`);
+  lines.push(`С начала месяца: выручка ${money(mRev)} · закупки ${money(mBuy)} · фудкост ${pct(mRev > 0 ? mBuy / mRev : null)}`);
   if (siteUrl) lines.push(`<a href="${siteUrl}/canteens">Открыть «Столовые»</a>`);
   return lines.join('\n');
 }

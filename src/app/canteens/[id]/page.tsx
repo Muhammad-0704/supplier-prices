@@ -37,7 +37,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
   const [lines, reports, recent, sync, costRows] = await Promise.all([
     loadShipments(db, [canteen], month, true),
     loadReports(db, [canteen], month),
-    db.from('daily_reports').select('report_date, cash, card').eq('canteen_id', canteen.id).gte('report_date', yesterday),
+    db.from('daily_reports').select('report_date, cash, card, meat').eq('canteen_id', canteen.id).gte('report_date', yesterday),
     loadSyncState(db),
     manager ? loadCostSummary(db, month).catch(() => []) : Promise.resolve([]),
   ]);
@@ -48,7 +48,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
   const t = summarize([canteen.id], customerMap([canteen]), lines, reports).get(canteen.id)!;
 
   const formReports: Record<string, ReportValue> = {};
-  for (const r of [...reports, ...(recent.data ?? [])]) formReports[r.report_date] = { cash: Number(r.cash), card: Number(r.card) };
+  for (const r of [...reports, ...(recent.data ?? [])]) formReports[r.report_date] = { cash: Number(r.cash), card: Number(r.card), meat: Number(r.meat ?? 0) };
 
   // Строки по дням и накладным
   const byDay = new Map<string, Map<string, ShipmentLineRow[]>>();
@@ -84,15 +84,15 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
           <MonthNav month={month} base={`/canteens/${canteen.id}`} />
         </div>
         <div className="pb-stats">
-          <div className="pb-stats__item"><span className="pb-stats__label">Отгружено со склада</span><span className="pb-stats__value">{num(t.shipped)} ₽</span></div>
+          <div className="pb-stats__item"><span className="pb-stats__label">Закупки</span><span className="pb-stats__value">{num(t.shipped + t.meat)} ₽</span><span className="pb-stats__sub">склад {num(t.shipped)} · мясо {num(t.meat)}</span></div>
           <div className="pb-stats__item"><span className="pb-stats__label">Выручка</span><span className="pb-stats__value">{num(t.revenue)} ₽</span><span className="pb-stats__sub">нал {num(t.cash)} · безнал {num(t.card)}</span></div>
-          <div className="pb-stats__item"><span className="pb-stats__label">Фудкост</span><span className="pb-stats__value">{fc(t.foodcost)}</span><span className="pb-stats__sub">склад ÷ выручка</span></div>
+          <div className="pb-stats__item"><span className="pb-stats__label">Фудкост</span><span className="pb-stats__value">{fc(t.foodcost)}</span><span className="pb-stats__sub">(склад + мясо) ÷ выручка</span></div>
           {manager && cc && (() => {
             const real = realCost(t.shipped, cc.costed, cc.cost);
             return (
               <div className="pb-stats__item">
                 <span className="pb-stats__label">Реальный фудкост</span>
-                <span className="pb-stats__value">{t.revenue > 0 ? fc(real / t.revenue) : '—'}</span>
+                <span className="pb-stats__value">{t.revenue > 0 ? fc((real + t.meat) / t.revenue) : '—'}</span>
                 <span className="pb-stats__sub">по закупочным {num(real)} ₽ · наценка {fc(markupRate(cc.costed, cc.cost))} · <Link href={`/canteens/markup?month=${month}&c=${canteen.id}`}>проверить</Link></span>
               </div>
             );
@@ -102,7 +102,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
 
         {days.length > 0 && <DayChart days={monthRange(month).days.filter((d) => d <= today).map((d) => {
           const x = t.byDay.get(d);
-          return { day: d, revenue: x?.revenue ?? 0, shipped: x?.shipped ?? 0, reported: !!x?.reported };
+          return { day: d, revenue: x?.revenue ?? 0, shipped: (x?.shipped ?? 0) + (x?.meat ?? 0), reported: !!x?.reported };
         })} />}
 
         {!canteen.customerIds.length && <div className="notice">Точка не привязана к покупателю в 1С — закупки не видны. {manager ? 'Привяжите в «Доступах».' : 'Скажите руководителю.'}</div>}
@@ -112,7 +112,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
         ) : (
           <div className="cn-days">
             <div className="cn-day cn-day--head" aria-hidden="true">
-              <span>День</span><span className="r">Склад</span><span className="r">Нал</span><span className="r">Безнал</span><span className="r">Выручка</span><span className="r">Фудкост</span>
+              <span>День</span><span className="r">Склад</span><span className="r">Мясо</span><span className="r">Нал</span><span className="r">Безнал</span><span className="r">Выручка</span><span className="r">Фудкост</span>
             </div>
             {days.map((d) => {
               const x = t.byDay.get(d)!;
@@ -121,10 +121,11 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
                 <>
                   <span>{dayTitle(d)}{d === today && <span className="muted"> · сегодня</span>}{!x.reported && d <= today && <span className="cn-miss" title="Отчёт не сдан"> нет отчёта</span>}</span>
                   <span className="r num">{x.shipped ? num(x.shipped) : '—'}</span>
+                  <span className="r num">{x.reported && x.meat ? num(x.meat) : '—'}</span>
                   <span className="r num">{x.reported ? num(x.cash) : '—'}</span>
                   <span className="r num">{x.reported ? num(x.card) : '—'}</span>
                   <span className="r num">{x.reported ? num(x.revenue) : '—'}</span>
-                  <span className="r num">{x.reported && x.revenue > 0 ? fc(x.shipped / x.revenue) : '—'}</span>
+                  <span className="r num">{x.reported && x.revenue > 0 ? fc((x.shipped + x.meat) / x.revenue) : '—'}</span>
                 </>
               );
               if (!docs) return <div key={d} className="cn-day">{row}</div>;
