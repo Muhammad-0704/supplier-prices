@@ -28,9 +28,9 @@ export function SyncNote({ at, ok, message }: { at: string | null; ok: boolean; 
   }
 
   return (
-    <div className="bar cn-sync">
-      <SyncStatus state={busy ? 'syncing' : ok ? 'ok' : 'error'} label={busy ? 'Получаем данные из 1С…' : at ? syncLabel(at).replace('Синхронизировано с 1С', 'Расходные по данным 1С:') : 'Расходных из 1С ещё нет'} />
-      <button className="pb-btn pb-btn--quiet pb-btn--sm" type="button" onClick={refresh} disabled={busy}>Обновить из 1С</button>
+    <div className="cn-sync">
+      <SyncStatus state={busy ? 'syncing' : ok ? 'ok' : 'error'} label={busy ? 'Получаем данные из 1С…' : at ? syncLabel(at).replace('Синхронизировано с 1С', 'Данные 1С') : 'Расходных из 1С ещё нет'} />
+      <button className="pb-btn pb-btn--quiet pb-btn--sm" type="button" onClick={refresh} disabled={busy}>Обновить</button>
       {!ok && message && !note && <span className="err">{message}</span>}
       {note && <span className="muted" role="status">{note}</span>}
     </div>

@@ -3,15 +3,35 @@ import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { saveReport } from '@/app/canteens/actions';
 
-function Submit({ edit }: { edit: boolean }) {
-  const { pending } = useFormStatus();
-  return <button className="pb-btn pb-btn--primary" type="submit" disabled={pending}>{pending ? 'Сохраняем…' : edit ? 'Исправить' : 'Сдать отчёт'}</button>;
-}
-
 export interface ReportValue { cash: number; card: number; meat: number }
 
-/** Отчёт за день: дата, наличные, безнал (сверяют с чеками из отчёта кассы), мясо по накладным. Подставляет уже сданные цифры. */
-export function ReportForm({ canteenId, today, minDay, reports }: { canteenId: string; today: string; minDay: string | null; reports: Record<string, ReportValue> }) {
+const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+const parse = (v: string) => Number(v.replace(/[\s ]/g, '').replace(',', '.')) || 0;
+const ddmm = (d: string) => `${d.slice(8, 10)}.${d.slice(5, 7)}`;
+
+function Submit({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return <button className="pb-btn pb-btn--primary rf__submit" type="submit" disabled={pending}>{pending ? 'Сохраняем…' : label}</button>;
+}
+
+function Money({ id, label, hint, value, onChange }: { id: string; label: string; hint?: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="rf__field">
+      <label htmlFor={id}>{label}</label>
+      <span className="rf__input">
+        <input id={id} name={id} inputMode="decimal" autoComplete="off" placeholder="0" value={value} onChange={(e) => onChange(e.target.value)} aria-describedby={hint ? `${id}_hint` : undefined} />
+        <span aria-hidden="true">₽</span>
+      </span>
+      {hint && <span className="rf__hint" id={`${id}_hint`}>{hint}</span>}
+    </div>
+  );
+}
+
+/**
+ * Отчёт за день — главное действие админа точки, рассчитано на телефон.
+ * Админ выбирает «Сегодня» или «Вчера» (раньше — только через руководителя), руководитель — любой день.
+ */
+export function ReportForm({ canteenId, today, yesterday, manager, reports }: { canteenId: string; today: string; yesterday: string; manager: boolean; reports: Record<string, ReportValue> }) {
   const [state, action] = useFormState(saveReport, null);
   const [day, setDay] = useState(today);
   const cur = reports[day];
@@ -26,40 +46,42 @@ export function ReportForm({ canteenId, today, minDay, reports }: { canteenId: s
     setMeat(r?.meat ? String(r.meat) : '');
   }, [day, reports]);
 
-  const total = (Number(cash.replace(/\s/g, '').replace(',', '.')) || 0) + (Number(card.replace(/\s/g, '').replace(',', '.')) || 0);
+  const revenue = parse(cash) + parse(card);
+  const dayName = day === today ? 'сегодня' : day === yesterday ? 'вчера' : ddmm(day);
+  const other = day !== today && day !== yesterday;
 
   return (
-    <form action={action} className="card-box cn-report">
-      <div className="cn-head">
-        <h2>Отчёт за день</h2>
-        {cur && <span className="pb-badge pb-badge--best">сдан</span>}
-      </div>
+    <form action={action} className={`rf ${cur ? 'rf--done' : ''}`}>
       <input type="hidden" name="canteen_id" value={canteenId} />
-      <div className="row-form">
-        <div className="field" style={{ flex: '0 1 170px' }}>
-          <label htmlFor="report_date">Дата</label>
-          <input className="input" id="report_date" name="report_date" type="date" value={day} max={today} min={minDay ?? undefined} onChange={(e) => setDay(e.target.value)} required />
+      <input type="hidden" name="report_date" value={day} />
+
+      <div className="rf__head">
+        <h2>Отчёт за день</h2>
+        <div className="rf__days" role="group" aria-label="День отчёта">
+          <button type="button" aria-pressed={day === today} onClick={() => setDay(today)}>Сегодня <span>{ddmm(today)}</span></button>
+          <button type="button" aria-pressed={day === yesterday} onClick={() => setDay(yesterday)}>Вчера <span>{ddmm(yesterday)}</span></button>
+          {manager && (
+            <label className={`rf__other ${other ? 'is-on' : ''}`}>
+              <span className="sr-only">Другой день</span>
+              <input type="date" value={day} max={today} onChange={(e) => e.target.value && setDay(e.target.value)} />
+            </label>
+          )}
         </div>
-        <div className="field">
-          <label htmlFor="cash">Наличные, ₽</label>
-          <input className="input num" id="cash" name="cash" inputMode="decimal" autoComplete="off" placeholder="0" value={cash} onChange={(e) => setCash(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="card">Безнал, ₽</label>
-          <input className="input num" id="card" name="card" inputMode="decimal" autoComplete="off" placeholder="0" value={card} onChange={(e) => setCard(e.target.value)} />
-        </div>
-        <div className="field">
-          <label htmlFor="meat">Мясо, ₽</label>
-          <input className="input num" id="meat" name="meat" inputMode="decimal" autoComplete="off" placeholder="0" value={meat} onChange={(e) => setMeat(e.target.value)} aria-describedby="meat_hint" />
-        </div>
-        <Submit edit={!!cur} />
+        <span className={`dot ${cur ? 'dot--ok' : 'dot--miss'}`}>{cur ? `за ${dayName} сдан — можно исправить` : `за ${dayName} ещё не сдан`}</span>
       </div>
-      <p className="muted" style={{ margin: 0, fontSize: 12 }}>
-        Выручка за день: <b className="num">{new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(total)} ₽</b>. Безнал сверьте с отчётом кассы. <span id="meat_hint">Мясо — сумма за день по накладным мясного магазина, как в тетради.</span>
-        {minDay && ' Исправить можно отчёт за сегодня и вчера.'}
-      </p>
+
+      <div className="rf__fields">
+        <Money id="cash" label="Наличные" value={cash} onChange={setCash} />
+        <Money id="card" label="Безнал" hint="сверьте с отчётом кассы" value={card} onChange={setCard} />
+        <Money id="meat" label="Мясо" hint="сумма по накладным, как в тетради" value={meat} onChange={setMeat} />
+      </div>
+
+      <div className="rf__foot">
+        <span className="rf__total">Выручка за {dayName}: <b className="num">{nf.format(revenue)} ₽</b></span>
+        <Submit label={cur ? 'Сохранить исправления' : `Сдать отчёт за ${dayName}`} />
+      </div>
       {state?.error && <p className="err" role="alert">{state.error}</p>}
-      {state?.ok && <p className="pb-trend--drop" role="status" style={{ margin: 0, fontSize: 13 }}>{state.ok}</p>}
+      {state?.ok && <p className="rf__ok" role="status">{state.ok}</p>}
     </form>
   );
 }
