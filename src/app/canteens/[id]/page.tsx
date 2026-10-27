@@ -10,7 +10,8 @@ import { requireCanteens } from '@/lib/access';
 import { dayTitle, isMonth, monthRange, mskDay, mskMonth, summarize } from '@/lib/canteens';
 import { chatKey } from '@/lib/canteens-notify';
 import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments, loadSyncState, type ShipmentLineRow } from '@/lib/canteens-data';
-import { buildViews, fcText as fc } from '@/lib/canteens-view';
+import { FoodcostBar } from '@/components/canteens/Foodcost';
+import { buildViews, fcText as fc, shortMoney } from '@/lib/canteens-view';
 import { num, plural, rubFine } from '@/lib/format';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -69,7 +70,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
     <main className="page">
       <CanteenHeader me={me} current="points" />
       <div className="cn-title">
-        {(manager || others.length > 0) && <Link href={`/canteens?month=${month}`} className="muted">← Все точки</Link>}
+        {(manager || others.length > 0) && <Link href={`/canteens?month=${month}`} className="cn-back">← Все точки</Link>}
         <h2>{canteen.name}</h2>
         {others.length > 0 && !manager && (
           <nav className="cn-switch" aria-label="Другие точки">
@@ -77,28 +78,40 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
           </nav>
         )}
       </div>
-      <SyncNote at={sync?.at ?? null} ok={sync?.ok ?? true} message={sync?.message ?? null} />
 
-      <ReportForm canteenId={canteen.id} today={today} minDay={manager ? null : yesterday} reports={formReports} />
+      <ReportForm canteenId={canteen.id} today={today} yesterday={yesterday} manager={manager} reports={formReports} />
       {!manager && telegramConfigured() && <TelegramLink linked={tgLinked} />}
 
-      <section className="card-box">
-        <div className="cn-head">
-          <h2>По дням</h2>
-          <MonthNav month={month} base={`/canteens/${canteen.id}`} />
-        </div>
-        <div className="pb-stats">
-          <div className="pb-stats__item"><span className="pb-stats__label">Закупки</span><span className="pb-stats__value">{num(t.buy + t.meat)} ₽</span><span className="pb-stats__sub">склад {num(t.buy)}{byCost ? ' (по закупочным)' : ''} · мясо {num(t.meat)}</span></div>
-          <div className="pb-stats__item"><span className="pb-stats__label">Выручка</span><span className="pb-stats__value">{num(t.revenue)} ₽</span><span className="pb-stats__sub">нал {num(t.cash)} · безнал {num(t.card)}</span></div>
-          <div className="pb-stats__item">
-            <span className="pb-stats__label">Фудкост</span>
-            <span className="pb-stats__value">{fc(t.foodcost)}</span>
-            <span className="pb-stats__sub">{t.fcDays ? `за ${t.fcDays} ${plural(t.fcDays, 'день', 'дня', 'дней')} с выручкой` : 'нет дней с выручкой'}</span>
-          </div>
-          <div className="pb-stats__item"><span className="pb-stats__label">Отчётов сдано</span><span className="pb-stats__value">{t.reports}</span></div>
-        </div>
-        <p className="muted cn-foot">Фудкост — доля выручки, ушедшая на продукты: (склад + мясо) ÷ выручка. Считается только за дни, где выручка известна.</p>
+      <div className="cn-toolbar">
+        <MonthNav month={month} base={`/canteens/${canteen.id}`} />
+        <div className="cn-toolbar__right"><SyncNote at={sync?.at ?? null} ok={sync?.ok ?? true} message={sync?.message ?? null} /></div>
+      </div>
 
+      <section className="kpi" aria-label="Итог месяца по точке">
+        <div className="kpi__item">
+          <span className="kpi__label">Выручка</span>
+          <span className="kpi__value num">{t.revenue ? shortMoney(t.revenue) : '—'}<small> ₽</small></span>
+          <span className="kpi__sub">{t.revenue ? `наличные ${shortMoney(t.cash)}, безнал ${shortMoney(t.card)}` : 'отчётов ещё нет'}</span>
+        </div>
+        <div className="kpi__item">
+          <span className="kpi__label">Закупки</span>
+          <span className="kpi__value num">{shortMoney(t.buy + t.meat)}<small> ₽</small></span>
+          <span className="kpi__sub">склад {shortMoney(t.buy)}{byCost ? ' по закупочным' : ''}, мясо {shortMoney(t.meat)}</span>
+        </div>
+        <div className="kpi__item kpi__item--fc">
+          <span className="kpi__label">Фудкост</span>
+          <FoodcostBar value={t.foodcost} />
+          <span className="kpi__sub">{t.fcDays ? `за ${t.fcDays} ${plural(t.fcDays, 'день', 'дня', 'дней')} с выручкой` : 'нет дней с выручкой'}</span>
+        </div>
+        <div className="kpi__item">
+          <span className="kpi__label">Отчётов сдано</span>
+          <span className="kpi__value num">{t.reports}<small> из {monthRange(month).days.filter((d) => d <= today).length}</small></span>
+          <span className="kpi__sub">дней в месяце на сегодня</span>
+        </div>
+      </section>
+
+      <section className="card-box">
+        <h2>По дням</h2>
         {days.length > 0 && <DayChart days={monthRange(month).days.filter((d) => d <= today).map((d) => {
           const x = t.byDay.get(d);
           return { day: d, revenue: x?.revenue ?? 0, shipped: (x?.buy ?? 0) + (x?.meat ?? 0), hasRevenue: !!x?.hasRevenue };

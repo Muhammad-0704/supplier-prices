@@ -83,3 +83,24 @@ export function totalView(points: PointView[]): TotalView {
 
 /** 12,3% */
 export const fcText = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
+
+/**
+ * Зоны фудкоста для подсветки: до 35% — хорошо, до 40% — норма, выше — дорого.
+ * Порог можно будет вынести в настройки руководителя.
+ */
+export const FOODCOST_NORM = 0.4;
+export type FcZone = 'good' | 'norm' | 'high' | 'none';
+export function fcZone(v: number | null): FcZone {
+  if (v == null) return 'none';
+  if (v <= 0.35) return 'good';
+  if (v <= FOODCOST_NORM) return 'norm';
+  return 'high';
+}
+
+/** 19,9 млн · 245 тыс · 870 */
+export function shortMoney(v: number): string {
+  const a = Math.abs(v);
+  if (a >= 1_000_000) return `${(v / 1_000_000).toFixed(a >= 10_000_000 ? 1 : 2).replace('.', ',')} млн`;
+  if (a >= 10_000) return `${Math.round(v / 1000)} тыс`;
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(v);
+}
