@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { CanteenHeader } from '@/components/canteens/CanteenHeader';
 import { DayChart } from '@/components/canteens/Charts';
 import { MonthNav } from '@/components/canteens/MonthNav';
+import { PointTabs } from '@/components/canteens/PointTabs';
 import { ReportForm, type ReportValue } from '@/components/canteens/ReportForm';
 import { SyncNote } from '@/components/canteens/SyncNote';
 import { TelegramLink } from '@/components/canteens/TelegramLink';
@@ -78,6 +79,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
           </nav>
         )}
       </div>
+      <PointTabs id={canteen.id} month={month} current="main" />
 
       <ReportForm canteenId={canteen.id} today={today} yesterday={yesterday} manager={manager} reports={formReports} />
       {!manager && telegramConfigured() && <TelegramLink linked={tgLinked} />}

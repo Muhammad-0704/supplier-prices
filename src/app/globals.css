@@ -536,3 +536,97 @@ button { font: inherit; }
   .cn-card__nums small { display: block; font-size: 11px; font-weight: 400; color: var(--ink-muted); }
   .cn-toolbar { align-items: flex-start; }
 }
+
+/* ---------- Центр Питания: разделы точки и экран «Продажи» ---------- */
+.cn-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-top: -4px; }
+.cn-tabs a { padding: 10px 14px; margin-bottom: -1px; font-weight: 600; font-size: 14px; color: var(--ink-muted); text-decoration: none; border-bottom: 2px solid transparent; }
+.cn-tabs a:hover { color: var(--ink); }
+.cn-tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); }
+
+.sl-demo { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--fc-norm); color: #fff; }
+[data-theme="dark"] .sl-demo { color: #1a1a1a; }
+.sl-note { margin: 0; font-size: 13px; line-height: 19px; }
+.sl-ink { color: var(--ink); }
+.sl-h3 { margin: 0 0 8px; font-size: 14px; }
+.sl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.sl-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 24px; }
+
+/* По дням: столбики — чеки, точки — средний чек */
+.sl-flow { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.sl-flow__plot { display: grid; height: 170px; gap: 3px; align-items: end; border-bottom: 1px solid var(--line); }
+.sl-flow__col { position: relative; height: 100%; display: flex; align-items: flex-end; }
+.sl-flow__bar { width: 100%; background: var(--good); opacity: .6; border-radius: 3px 3px 0 0; }
+.sl-flow__col.is-wkend .sl-flow__bar { opacity: .3; }
+.sl-flow__col:hover .sl-flow__bar { opacity: .9; }
+.sl-flow__dot { position: absolute; left: 50%; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--ink); }
+.sl-legend__bar { height: 10px; background: var(--good); opacity: .6; border-radius: 2px; }
+.cn-legend .sl-legend__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+
+/* Строки с полосой */
+.sl-rows { display: flex; flex-direction: column; }
+.sl-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) 80px 70px; gap: 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line-soft, var(--line)); font-size: 14px; }
+.sl-row:last-child { border-bottom: 0; }
+.sl-row--head { font-size: 12px; color: var(--ink-muted); padding-top: 0; }
+.sl-row.is-wkend { color: var(--ink-muted); }
+.sl-bar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sl-bar i { display: block; height: 10px; border-radius: 3px; background: var(--good); opacity: .6; min-width: 2px; }
+.sl-bar span { font-size: 13px; white-space: nowrap; }
+.sl-bar--thin i { height: 6px; }
+
+/* По часам */
+.sl-hours { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.sl-hours__plot { display: grid; height: 150px; gap: 4px; align-items: end; border-bottom: 1px solid var(--line); }
+.sl-hours__col { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; }
+.sl-hours__bar { width: 100%; border-radius: 3px 3px 0 0; background: var(--ink-muted); opacity: .35; }
+.sl-hours__bar.is-peak { background: var(--good); opacity: .85; }
+.sl-hours__val { font-size: 10px; color: var(--ink-muted); }
+.sl-hours__axis { display: grid; gap: 4px; text-align: center; font-size: 11px; color: var(--ink-muted); font-family: var(--font-mono); }
+
+/* Категории */
+.sl-cats { display: flex; flex-direction: column; gap: 8px; }
+.sl-cat { display: grid; grid-template-columns: 140px minmax(0, 1fr) 44px 80px; gap: 12px; align-items: center; font-size: 14px; }
+.sl-cat__bar { height: 10px; border-radius: 3px; background: var(--surface-sunk); overflow: hidden; }
+.sl-cat__bar i { display: block; height: 100%; background: var(--good); opacity: .6; }
+.sl-cat__pct { text-align: right; font-weight: 600; }
+.sl-cat__sum { text-align: right; font-size: 13px; }
+
+/* Блюда */
+.sl-dishes { width: 100%; }
+.sl-dishes td { vertical-align: top; }
+.sl-rank { display: inline-block; width: 22px; color: var(--ink-muted); font-size: 12px; }
+.sl-dishes .cn-hint { margin-left: 22px; }
+.sl-share-col { width: 28%; min-width: 120px; }
+.sl-slow { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; }
+.sl-slow li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft, var(--line)); font-size: 14px; }
+.sl-slow li:last-child { border-bottom: 0; }
+
+/* Кассиры и удаления */
+.sl-staff, .sl-voids { min-width: 640px; }
+.sl-hot { color: var(--bad); font-weight: 700; }
+.sl-tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--surface-sunk); white-space: nowrap; }
+.sl-tag--bad { background: var(--bad-soft); color: var(--bad); font-weight: 600; }
+
+@media (max-width: 860px) {
+  .sl-grid, .sl-split { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .sl-row { grid-template-columns: 52px minmax(0, 1fr) 64px 52px; gap: 8px; font-size: 13px; }
+  .sl-cat { grid-template-columns: 96px minmax(0, 1fr) 40px; }
+  .sl-cat__sum { display: none; }
+  .sl-flow__plot { height: 130px; gap: 2px; }
+  .sl-hours__val { display: none; }
+  .sl-hours__axis span:nth-child(even) { visibility: hidden; }
+  .cn-tabs a { flex: 1; text-align: center; padding: 10px 6px; }
+}
+.sl-more summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-muted); padding: 6px 0; }
+.sl-more summary:hover { color: var(--ink); }
+.sl-more[open] summary { margin-bottom: 8px; }
+.sl-split > div, .sl-grid > * { min-width: 0; }
+@media (max-width: 640px) {
+  .sl-dishes .sl-share-col { display: none; }
+  .sl-dishes { min-width: 0; }
+}
+@media (max-width: 640px) {
+  .sl-dishes td:first-child { white-space: normal; }
+  .sl-dishes th, .sl-dishes td { padding-left: 4px; padding-right: 4px; font-size: 13px; }
+}

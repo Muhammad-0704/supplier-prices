@@ -19,6 +19,14 @@ export interface OverviewProps {
 
 const pctInt = (v: number) => `${Math.round(v * 100)}%`;
 
+/** Чеки и средний чек из iiko за месяц (только дни, где iiko отдал чеки) */
+function checksOf(p: PointView): { checks: number; avg: number | null } {
+  let checks = 0, rev = 0;
+  for (const d of p.byDay.values()) if (d.source === 'iiko' && d.checks > 0) { checks += d.checks; rev += d.revenue; }
+  return { checks, avg: checks ? rev / checks : null };
+}
+const checksHint = (p: PointView) => { const c = checksOf(p); return c.checks ? `${num(c.checks)} чеков · ср. ${num(c.avg!)} ₽` : null; };
+
 /** Месяц по всем точкам: итог в четырёх цифрах и одна таблица, где фудкост виден шкалой. */
 export function Overview({ month, points, total, today, unlinked, byCost, toolbar }: OverviewProps) {
   const done = today?.filter((t) => t.done).length ?? 0;
@@ -86,7 +94,7 @@ export function Overview({ month, points, total, today, unlinked, byCost, toolba
                       <span className={`dot ${status.get(p.id) ? 'dot--ok' : 'dot--miss'}`}>{status.get(p.id) ? 'сдан' : 'нет отчёта'}</span>
                     </td>
                   )}
-                  <td className="r num">{p.revenue ? num(p.revenue) : <span className="muted">—</span>}</td>
+                  <td className="r num">{p.revenue ? num(p.revenue) : <span className="muted">—</span>}{checksHint(p) && <Link href={`/canteens/${p.id}/sales?month=${month}`} className="cn-hint">{checksHint(p)}</Link>}</td>
                   <td className="r num">{num(p.buy)}</td>
                   <td className="r num">{p.meat ? num(p.meat) : <span className="muted">—</span>}</td>
                   <td className="cn-fc-col"><FoodcostBar value={p.foodcost} days={p.fcDays} /></td>
@@ -117,7 +125,7 @@ export function Overview({ month, points, total, today, unlinked, byCost, toolba
                 </span>
                 <FoodcostBar value={p.foodcost} days={p.fcDays} />
                 <span className="cn-card__nums">
-                  <span><small>Выручка</small>{p.revenue ? shortMoney(p.revenue) : '—'}</span>
+                  <span><small>Выручка</small>{p.revenue ? shortMoney(p.revenue) : '—'}{checksHint(p) && <small>{checksHint(p)}</small>}</span>
                   <span><small>Склад</small>{shortMoney(p.buy)}</span>
                   <span><small>Мясо</small>{p.meat ? shortMoney(p.meat) : '—'}</span>
                 </span>

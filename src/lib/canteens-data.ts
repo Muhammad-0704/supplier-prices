@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { monthRange, type IikoRow, type ReportRow } from './canteens';
+import type { DishIn, HourIn, RevDay, StaffIn, VoidIn } from './iiko-insights';
 
 export interface Canteen { id: string; name: string; customerIds: string[] }
 
@@ -114,4 +115,42 @@ export function costTotals(rows: CostSummaryRow[]): Map<string, { amount: number
     out.set(r.canteen_id, t);
   }
   return out;
+}
+
+// ---------- Продажи из iiko подробно (экран «Продажи») ----------
+
+export interface IikoDetails {
+  revenue: RevDay[];
+  hours: HourIn[];
+  dishes: DishIn[];
+  /** Кассиры, удаления и возвраты — только руководителю (база вернёт пусто остальным) */
+  staff: StaffIn[] | null;
+  voids: VoidIn[] | null;
+  /** Есть тестовые строки — экран помечает «тестовые данные» */
+  demo: boolean;
+}
+
+type Q<T> = PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+
+export async function loadIikoDetails(db: SupabaseClient, canteenId: string, month: string, manager: boolean): Promise<IikoDetails> {
+  const { days } = monthRange(month);
+  const a = days[0], b = days[days.length - 1];
+  const rows = <T>(table: string, cols: string) => pages<T>((x, y) => db.from(table).select(cols).eq('canteen_id', canteenId).gte('day', a).lte('day', b).order('day').range(x, y) as unknown as Q<T>)
+    .catch(() => [] as T[]); // таблиц ещё нет или нет прав — срез пустой
+  const n = (v: unknown) => Number(v) || 0;
+  const [rev, hours, dishes, staff, voids] = await Promise.all([
+    rows<{ day: string; total: number; checks: number; demo: boolean }>('iiko_revenue', 'day, total, checks, demo'),
+    rows<HourIn & { demo: boolean }>('iiko_hours', 'day, hour, revenue, checks, demo'),
+    rows<DishIn>('iiko_dishes', 'day, dish, category, qty, revenue, discount'),
+    manager ? rows<StaffIn>('iiko_staff', 'day, cashier, revenue, checks, discount') : Promise.resolve(null),
+    manager ? rows<VoidIn>('iiko_voids', 'day, kind, cashier, dish, qty, amount, writeoff') : Promise.resolve(null),
+  ]);
+  return {
+    revenue: rev.map((r) => ({ day: r.day, total: n(r.total), checks: n(r.checks) })),
+    hours: hours.map((h) => ({ day: h.day, hour: n(h.hour), revenue: n(h.revenue), checks: n(h.checks) })),
+    dishes: dishes.map((d) => ({ ...d, qty: n(d.qty), revenue: n(d.revenue), discount: n(d.discount) })),
+    staff: staff && staff.map((s) => ({ ...s, revenue: n(s.revenue), checks: n(s.checks), discount: n(s.discount) })),
+    voids: voids && voids.map((v) => ({ ...v, qty: n(v.qty), amount: n(v.amount) })),
+    demo: rev.some((r) => r.demo) || hours.some((h) => h.demo),
+  };
 }

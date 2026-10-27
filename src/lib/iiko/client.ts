@@ -1,5 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { chooseDetailFields, detailRequests, parseDishes, parseHours, parseStaff, parseVoids, type DishRow, type HourRow, type StaffRow, type VoidRow } from './details';
 import { chooseSalesFields, parseSales, salesRequest, type DayRevenue, type OlapColumns } from './olap';
 
 /**
@@ -48,8 +49,21 @@ export async function withIiko<T>(host: string, login: string, password: string,
   }
 }
 
-/** Выручка по дням с from по to (to не включая): наличные, безнал, по типам оплат, чеки. */
-export async function fetchRevenue(host: string, login: string, password: string, from: string, to: string): Promise<DayRevenue[]> {
+export interface IikoSales {
+  days: DayRevenue[];
+  hours: HourRow[] | null;
+  dishes: DishRow[] | null;
+  staff: StaffRow[] | null;
+  voids: VoidRow[] | null;
+  /** Срезы, которые сервер не отдал, и почему */
+  skipped: string[];
+}
+
+/**
+ * Продажи с from по to (to не включая) за один вход: выручка по дням и типам оплат, чеки,
+ * затем подробности — часы, блюда, кассиры, удаления, возвраты. Сбой подробностей не мешает выручке.
+ */
+export async function fetchSales(host: string, login: string, password: string, from: string, to: string): Promise<IikoSales> {
   return withIiko(host, login, password, async (call) => {
     const cols = (await call('/v2/reports/olap/columns?reportType=SALES')) as OlapColumns;
     const fields = chooseSalesFields(cols);
@@ -57,6 +71,27 @@ export async function fetchRevenue(host: string, login: string, password: string
     const post = (body: unknown) => call('/v2/reports/olap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) as Promise<{ data?: Record<string, unknown>[] }>;
     const sales = await post(salesRequest(fields, from, to, true));
     const checks = fields.orders ? await post(salesRequest(fields, from, to, false)) : { data: [] };
-    return parseSales(fields, sales.data ?? [], checks.data ?? []);
+    const days = parseSales(fields, sales.data ?? [], checks.data ?? []);
+
+    const d = chooseDetailFields(cols);
+    const reqs = detailRequests(fields, d, from, to);
+    const skipped: string[] = [];
+    const get = async (k: keyof typeof reqs) => {
+      if (!reqs[k]) { skipped.push(`${k}: нет полей`); return null; }
+      try { return (await post(reqs[k])).data ?? []; } catch (e) { skipped.push(`${k}: ${(e as Error).message.slice(0, 120)}`); return null; }
+    };
+    const hours = await get('hours');
+    const dishes = await get('dishes');
+    const staff = await get('staff');
+    const deleted = await get('deleted');
+    const returns = await get('returns');
+    return {
+      days,
+      hours: hours && parseHours(fields, d, hours),
+      dishes: dishes && parseDishes(fields, d, dishes),
+      staff: staff && parseStaff(fields, d, staff),
+      voids: deleted || returns ? parseVoids(fields, d, deleted ?? [], returns ?? []) : null,
+      skipped,
+    };
   });
 }
