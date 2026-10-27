@@ -37,7 +37,8 @@ export function summaryText(day: string, points: PointView[], siteUrl: string | 
     const src = d.source === 'iiko' ? ' iiko' : '';
     const meatPart = d.meat ? ` · мясо ${money(d.meat)}` : d.reported ? '' : ' · мясо неизвестно (нет отчёта)';
     const diffPart = d.mismatch != null ? ` · ⚠ в отчёте админа ${d.mismatch > 0 ? 'больше' : 'меньше'} на ${money(Math.abs(d.mismatch))}` : '';
-    lines.push(`${esc(p.name)}: выручка${src} ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}) · склад ${money(d.buy)}${meatPart} · фудкост ${fcText(d.revenue > 0 ? (d.buy + d.meat) / d.revenue : null)}${diffPart}`);
+    const checksPart = d.source === 'iiko' && d.checks > 0 ? `, чеков ${d.checks}, ср. чек ${money(d.revenue / d.checks)}` : '';
+    lines.push(`${esc(p.name)}: выручка${src} ${money(d.revenue)} (нал ${money(d.cash)}, безнал ${money(d.card)}${checksPart}) · склад ${money(d.buy)}${meatPart} · фудкост ${fcText(d.revenue > 0 ? (d.buy + d.meat) / d.revenue : null)}${diffPart}`);
   }
   const month = totalView(points);
   lines.push('');
