@@ -1,8 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { dayTitle } from '@/lib/canteens';
-import { fcText, fcZone, shortMoney } from '@/lib/canteens-view';
+import { FOODCOST_NORM, fcText, fcZone, shortMoney } from '@/lib/canteens-view';
 import styles from './tv.module.css';
+
+/** Та же шкала 0–60%, что и в остальном приложении (components.css .fc), для консистентности. */
+const FC_SCALE = 0.6;
 
 export interface TvHour { hour: number; revenue: number }
 export interface TvDish { dish: string; qty: number; revenue: number }
@@ -61,6 +64,12 @@ function PointCard({ p, screen }: { p: TvPoint; screen: ScreenId }) {
         <>
           <div className={styles.revenue}>{shortMoney(p.revenue)} ₽</div>
           <div className={styles.fc}>{fcText(p.foodcost)}</div>
+          {p.foodcost != null && (
+            <div className={styles.fcTrack}>
+              <div className={styles.fcFill} style={{ width: `${Math.min(100, (p.foodcost / FC_SCALE) * 100)}%` }} />
+              <div className={styles.fcNorm} style={{ left: `${(FOODCOST_NORM / FC_SCALE) * 100}%` }} />
+            </div>
+          )}
           <div className={styles.cashRow}>
             <div className={styles.cashBlock}><span className={styles.cashLabel}>Наличные</span><span className={styles.cashVal}>{shortMoney(p.cash)} ₽</span></div>
             <div className={styles.cashBlock}><span className={styles.cashLabel}>Безнал</span><span className={styles.cashVal}>{shortMoney(p.card)} ₽</span></div>
@@ -114,6 +123,7 @@ export function TvScreen({ token, name, initialDay, initialPoints }: { token: st
   const [day, setDay] = useState(initialDay);
   const [points, setPoints] = useState(initialPoints);
   const [stale, setStale] = useState(false);
+  const [updatedAt, setUpdatedAt] = useState(() => new Date());
   const [screen, setScreen] = useState<ScreenId>('reports');
 
   useEffect(() => {
@@ -125,6 +135,7 @@ export function TvScreen({ token, name, initialDay, initialPoints }: { token: st
           setDay(data.day);
           setPoints(data.points);
           setStale(false);
+          setUpdatedAt(new Date());
         } else {
           setStale(true);
         }
@@ -168,6 +179,7 @@ export function TvScreen({ token, name, initialDay, initialPoints }: { token: st
         {points.length === 0 && <p className={styles.empty}>Нет активных точек.</p>}
         {points.map((p) => <PointCard key={p.id} p={p} screen={screen} />)}
       </div>
+      <p className={styles.foot}>Обновлено в {updatedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })} · обновляется каждую минуту</p>
     </main>
   );
 }

@@ -38,7 +38,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 24px;
-  align-content: flex-start;
+  align-items: stretch;
 }
 
 .empty { font-size: 28px; color: #9aa2ab; }
@@ -49,16 +49,22 @@
   background: #15181c;
   border: 1px solid #262b31;
   border-radius: 20px;
-  padding: 36px 40px;
+  padding: 48px 52px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  justify-content: center;
+  gap: 16px;
   border-top: 6px solid var(--tv-zone, #3a4048);
 }
 
-.name { margin: 0; font-size: 36px; font-weight: 650; color: #cfd3d8; }
-.revenue { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 116px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
-.fc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 56px; font-weight: 700; color: var(--tv-zone, #9aa2ab); }
+.name { margin: 0 0 8px; font-size: 40px; font-weight: 650; color: #cfd3d8; }
+.revenue { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 136px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
+.fc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 64px; font-weight: 700; color: var(--tv-zone, #9aa2ab); }
+
+.fcTrack { position: relative; height: 16px; border-radius: 8px; background: #1f2328; margin: 2px 0 10px; max-width: 420px; }
+.fcFill { position: absolute; inset: 0 auto 0 0; border-radius: 8px; background: var(--tv-zone, #9aa2ab); }
+.fcNorm { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1.5px; background: #f2f3f5; opacity: 0.45; }
+
 .sub { display: flex; gap: 32px; font-size: 26px; color: #9aa2ab; margin-top: 8px; }
 
 .zone_good { --tv-zone: #5bd08d; }
@@ -83,19 +89,21 @@
 .noData { font-size: 24px; color: #9aa2ab; margin: 0; }
 
 /* Экран «По часам» */
-.peak { font-size: 26px; color: #cfd3d8; margin-bottom: 4px; }
-.bars { flex: 1; display: flex; align-items: flex-end; gap: 6px; min-height: 220px; }
+.peak { font-size: 28px; color: #cfd3d8; margin-bottom: 4px; }
+.bars { flex: 1; display: flex; align-items: flex-end; gap: 6px; min-height: 320px; }
 .barCol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; }
 .barTrack { flex: 1; width: 100%; max-width: 28px; display: flex; align-items: flex-end; }
 .bar { width: 100%; background: var(--tv-zone, #8ab0ff); border-radius: 4px 4px 0 0; }
 .barLabel { font-size: 16px; color: #6b7280; }
 
 /* Экран «Блюда» */
-.dishList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
-.dishRow { display: flex; align-items: baseline; gap: 16px; font-size: 28px; }
-.dishRank { color: #6b7280; font-family: var(--font-mono); width: 32px; flex: none; }
+.dishList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 20px; }
+.dishRow { display: flex; align-items: baseline; gap: 16px; font-size: 32px; }
+.dishRank { color: #6b7280; font-family: var(--font-mono); width: 36px; flex: none; }
 .dishName { flex: 1; color: #cfd3d8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dishVal { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; flex: none; }
+
+.foot { text-align: center; font-size: 18px; color: #4b5156; }
 
 @media (max-width: 900px) {
   .screen { padding: 20px; }
