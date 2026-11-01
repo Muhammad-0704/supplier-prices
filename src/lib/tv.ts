@@ -63,3 +63,24 @@ export async function loadTvToday(db: SupabaseClient): Promise<{ day: string; po
   const points = buildViews(canteens, totals, null);
   return { day, points };
 }
+
+export interface TvPointData {
+  id: string; name: string;
+  revenue: number; foodcost: number | null; buy: number; meat: number;
+  cash: number; card: number;
+  /** Сдал ли админ точки отчёт за сегодня */
+  reported: boolean;
+  /** Расхождение отчёта с кассой iiko, если оно заметно (>1% или 100 ₽); null — расхождения нет или сверять не с чем */
+  mismatch: number | null;
+}
+
+/** Только сериализуемые поля для ответа API — PointView.byDay — Map, в JSON не едет. */
+export function tvPointsData(day: string, points: PointView[]): TvPointData[] {
+  return points.map((p) => {
+    const d = p.byDay.get(day);
+    return {
+      id: p.id, name: p.name, revenue: p.revenue, foodcost: p.foodcost, buy: p.buy, meat: p.meat,
+      cash: p.cash, card: p.card, reported: d?.reported ?? false, mismatch: d?.mismatch ?? null,
+    };
+  });
+}
