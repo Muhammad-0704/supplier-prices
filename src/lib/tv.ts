@@ -1,5 +1,5 @@
 import 'server-only';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildViews, type PointView } from './canteens-view';
 import { customerMap, loadCanteens, loadIiko, loadReports, loadShipments } from './canteens-data';
@@ -22,6 +22,23 @@ export interface TvLink {
 /** Случайный токен ссылки: 24 байта, ~32 символа, подобрать невозможно. */
 export function newTvToken(): string {
   return randomBytes(24).toString('base64url');
+}
+
+/** Код для короткого входа на ТВ: 6 цифр, действует 10 минут, одноразовый */
+export const PAIR_TTL_MS = 10 * 60_000;
+export function newPairCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
+}
+/** Цифры из того, что набрали пультом: пробелы, дефисы и прочее отбрасываются */
+export function cleanPairCode(raw: string): string | null {
+  const d = raw.replace(/\D/g, '');
+  return d.length === 6 ? d : null;
+}
+/** Защита от перебора: не больше 10 неудачных попыток с адреса и 100 всего за 10 минут */
+export const PAIR_LIMIT_IP = 10;
+export const PAIR_LIMIT_ALL = 100;
+export function pairBlocked(failedFromIp: number, failedAll: number): boolean {
+  return failedFromIp >= PAIR_LIMIT_IP || failedAll >= PAIR_LIMIT_ALL;
 }
 
 /** Действующая ссылка по токену или null. Токен проверяется по формату до запроса в базу. */

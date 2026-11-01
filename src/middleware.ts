@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC = ['/login', '/api/sync', '/api/weekly', '/api/order-digest', '/api/onec-probe', '/api/canteens/notify', '/o/', '/api/o/', '/tv/', '/api/tv/'];
+const PUBLIC = ['/login', '/tv', '/api/sync', '/api/weekly', '/api/order-digest', '/api/onec-probe', '/api/canteens/notify', '/o/', '/api/o/', '/api/tv/'];
 
 /** connect-src должен пускать и REST, и Realtime (wss) запросы к тому же проекту Supabase. */
 function supabaseConnectSrc() {

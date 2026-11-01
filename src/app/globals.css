@@ -630,3 +630,15 @@ button { font: inherit; }
   .sl-dishes td:first-child { white-space: normal; }
   .sl-dishes th, .sl-dishes td { padding-left: 4px; padding-right: 4px; font-size: 13px; }
 }
+
+/* «Доступы» → ТВ в офисе: код для входа, удаление */
+.tv-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tv-cell--end { justify-content: flex-end; }
+.tv-code { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tv-code__show { display: inline-flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tv-code__show b.num { font-family: var(--font-sans); font-size: 26px; line-height: 32px; font-weight: 700; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; }
+.tv-code__show .muted { font-size: 12px; }
+.tv-del { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: flex-end; }
+.tv-del .muted { font-size: 12px; }
+.pb-btn--danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+.pb-btn--danger:hover { filter: brightness(1.08); }
