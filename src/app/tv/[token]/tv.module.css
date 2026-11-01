@@ -96,10 +96,16 @@
 .bar { width: 100%; background: var(--tv-zone, #8ab0ff); border-radius: 4px 4px 0 0; }
 .barLabel { font-size: 16px; color: #6b7280; }
 
-/* Экран «Блюда» */
-.dishList { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 20px; }
-.dishRow { display: flex; align-items: baseline; gap: 16px; font-size: 32px; }
-.dishRank { color: #6b7280; font-family: var(--font-mono); width: 36px; flex: none; }
+/* Экран «Блюда» — div, не <ol>/<li>: номер оформлен отдельным кружком с фоном,
+   чтобы он ни при каких условиях не мог визуально слиться с первой буквой названия. */
+.dishList { display: flex; flex-direction: column; gap: 20px; }
+.dishRow { display: flex; align-items: center; gap: 20px; font-size: 32px; }
+.dishRank {
+  display: flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; flex: none;
+  border-radius: 50%; background: #20252b; color: #9aa2ab;
+  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+}
 .dishName { flex: 1; color: #cfd3d8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dishVal { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; flex: none; }
 

@@ -103,15 +103,15 @@ function PointCard({ p, screen }: { p: TvPoint; screen: ScreenId }) {
 
       {screen === 'dishes' && (
         p.topDishes.length === 0 ? <p className={styles.noData}>Нет данных от кассы за сегодня.</p> : (
-          <ol className={styles.dishList}>
+          <div className={styles.dishList}>
             {p.topDishes.map((d, i) => (
-              <li key={d.dish} className={styles.dishRow}>
+              <div key={d.dish} className={styles.dishRow}>
                 <span className={styles.dishRank}>{i + 1}</span>
                 <span className={styles.dishName}>{d.dish}</span>
                 <span className={styles.dishVal}>{shortMoney(d.revenue)} ₽</span>
-              </li>
+              </div>
             ))}
-          </ol>
+          </div>
         )
       )}
     </section>
@@ -177,7 +177,10 @@ export function TvScreen({ token, name, initialDay, initialPoints }: { token: st
       </header>
       <div className={styles.grid}>
         {points.length === 0 && <p className={styles.empty}>Нет активных точек.</p>}
-        {points.map((p) => <PointCard key={p.id} p={p} screen={screen} />)}
+        {/* key включает screen: при смене вкладки React полностью пересоздаёт DOM карточки,
+            а не патчит её на месте — на слабых браузерах дешёвых Smart TV патч иногда
+            не до конца очищает старые пиксели, и виден «призрак» прошлой вкладки поверх новой. */}
+        {points.map((p) => <PointCard key={`${p.id}:${screen}`} p={p} screen={screen} />)}
       </div>
       <p className={styles.foot}>Обновлено в {updatedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })} · обновляется каждую минуту</p>
     </main>
