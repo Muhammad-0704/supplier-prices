@@ -1,0 +1,19 @@
+/* Вход на ТВ по коду. Тёмный, крупно — набирают пультом с расстояния. Высота строки задана явно (body: 20px). */
+.screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: #0b0d10; color: #f2f3f5; font-family: var(--font-sans); line-height: 1.25; }
+.box { width: min(720px, 100%); display: flex; flex-direction: column; align-items: center; gap: clamp(16px, 2vw, 28px); text-align: center; }
+.title { margin: 0; font-size: clamp(30px, 3vw, 52px); line-height: 1.15; font-weight: 700; }
+.lead { margin: 0; font-size: clamp(18px, 1.5vw, 26px); line-height: 1.35; color: #9aa2ab; }
+.form { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.code {
+  width: min(520px, 100%); box-sizing: border-box; text-align: center;
+  font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-size: clamp(44px, 4.4vw, 80px); line-height: 1.15; font-weight: 700; letter-spacing: 0.16em; padding: 0.15em 0.2em 0.15em 0.36em;
+  background: #15181c; color: #f2f3f5; border: 2px solid #2a3037; border-radius: 18px; outline: none;
+}
+.code::placeholder { color: #3a4048; }
+.code:focus { border-color: #8ab0ff; }
+.btn { font-family: inherit; font-size: clamp(18px, 1.5vw, 26px); line-height: 1.2; font-weight: 700; padding: 0.7em 1.6em; border-radius: 999px; border: 0; background: #f2f3f5; color: #0b0d10; cursor: pointer; }
+.btn:focus-visible { outline: 3px solid #8ab0ff; outline-offset: 3px; }
+.btn:disabled { opacity: 0.6; }
+.err { margin: 0; font-size: clamp(16px, 1.3vw, 22px); line-height: 1.35; color: #ff8a7a; }
+.hint { margin: 0; font-size: clamp(14px, 1.1vw, 18px); line-height: 1.4; color: #6b7280; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

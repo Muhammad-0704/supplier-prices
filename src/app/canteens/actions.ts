@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { chatKey, codeKey } from '@/lib/canteens-notify';
 import { botUsername, findStartCode, sendTo, telegramConfigured } from '@/lib/telegram';
-import { newTvToken } from '@/lib/tv';
+import { newPairCode, newTvToken, PAIR_TTL_MS } from '@/lib/tv';
 import { ensureAccount } from '@/lib/users';
 
 export type ActionState = { ok?: string; error?: string } | null;
@@ -189,5 +189,37 @@ export async function createTvLink(_prev: TvLinkState, form: FormData): Promise<
 export async function setTvLinkActive(form: FormData) {
   const { db } = await manager();
   await db.from('tv_links').update({ active: form.get('active') === 'true' }).eq('id', String(form.get('id')));
+  revalidatePath('/canteens/access');
+}
+
+export type TvCodeState = { id?: string; code?: string; until?: string; error?: string } | null;
+
+/** Код из 6 цифр для короткого входа на ТВ: действует 10 минут, одноразовый. Новый код заменяет прежний. */
+export async function issueTvCode(_prev: TvCodeState, form: FormData): Promise<TvCodeState> {
+  try {
+    const { db } = await manager();
+    const id = String(form.get('id'));
+    const expires = new Date(Date.now() + PAIR_TTL_MS);
+    for (let i = 0; i < 5; i++) {
+      const code = newPairCode();
+      const { error } = await db.from('tv_links').update({ pair_code: code, pair_expires: expires.toISOString() }).eq('id', id).eq('active', true);
+      if (!error) {
+        const until = expires.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+        return { id, code, until };
+      }
+      if (!/duplicate|unique/i.test(error.message)) {
+        return { id, error: /pair_code|column/i.test(error.message) ? 'Сначала выполните SQL 0019 в Supabase.' : `Не удалось выдать код: ${error.message}` };
+      }
+    }
+    return { id, error: 'Не удалось выдать код, попробуйте ещё раз.' };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** Удалить ссылку ТВ насовсем: экран, открытый по ней, перестанет обновляться и покажет «ссылка недействительна». */
+export async function deleteTvLink(form: FormData) {
+  const { db } = await manager();
+  await db.from('tv_links').delete().eq('id', String(form.get('id')));
   revalidatePath('/canteens/access');
 }
