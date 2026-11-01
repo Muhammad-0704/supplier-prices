@@ -9,6 +9,9 @@ const FC_SCALE = 0.6;
 
 export interface TvHour { hour: number; revenue: number }
 export interface TvDish { dish: string; qty: number; revenue: number }
+export interface TvWeekday { label: string; revenue: number | null; checks: number | null }
+export interface TvCashier { cashier: string; revenue: number; checks: number; voidRate: number | null }
+export interface TvVoids { deletedCount: number; deletedAmount: number; returnsCount: number; returnsAmount: number }
 
 export interface TvPoint {
   id: string; name: string;
@@ -19,6 +22,10 @@ export interface TvPoint {
   hours: TvHour[];
   peakHour: TvHour | null;
   topDishes: TvDish[];
+  month: { revenue: number; foodcost: number | null; buy: number; meat: number };
+  weekdays: TvWeekday[];
+  topCashiers: TvCashier[];
+  voidsTotal: TvVoids;
 }
 
 const POLL_MS = 60_000;
@@ -28,6 +35,10 @@ const SCREENS = [
   { id: 'sales', label: 'Продажи' },
   { id: 'hours', label: 'По часам' },
   { id: 'dishes', label: 'Блюда' },
+  { id: 'month', label: 'Месяц' },
+  { id: 'week', label: 'Неделя' },
+  { id: 'cashiers', label: 'Кассиры' },
+  { id: 'voids', label: 'Удаления' },
 ] as const;
 type ScreenId = (typeof SCREENS)[number]['id'];
 
@@ -48,6 +59,20 @@ function HourBars({ hours }: { hours: TvHour[] }) {
         <div key={h.hour} className={styles.barCol}>
           <div className={styles.barTrack}><div className={styles.bar} style={{ height: `${Math.max(2, (h.revenue / max) * 100)}%` }} /></div>
           <span className={styles.barLabel}>{h.hour}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WeekdayBars({ weekdays }: { weekdays: TvWeekday[] }) {
+  const max = Math.max(1, ...weekdays.map((w) => w.revenue ?? 0));
+  return (
+    <div className={styles.bars}>
+      {weekdays.map((w) => (
+        <div key={w.label} className={styles.barCol}>
+          <div className={styles.barTrack}><div className={styles.bar} style={{ height: `${w.revenue ? Math.max(2, (w.revenue / max) * 100) : 2}%` }} /></div>
+          <span className={styles.barLabel}>{w.label}</span>
         </div>
       ))}
     </div>
@@ -113,6 +138,45 @@ function PointCard({ p, screen }: { p: TvPoint; screen: ScreenId }) {
             ))}
           </div>
         )
+      )}
+
+      {screen === 'month' && (
+        <>
+          <div className={styles.revenue}>{shortMoney(p.month.revenue)} ₽</div>
+          <div className={styles.fc}>{fcText(p.month.foodcost)}</div>
+          {p.month.foodcost != null && (
+            <div className={styles.fcTrack}>
+              <div className={styles.fcFill} style={{ width: `${Math.min(100, (p.month.foodcost / FC_SCALE) * 100)}%` }} />
+              <div className={styles.fcNorm} style={{ left: `${(FOODCOST_NORM / FC_SCALE) * 100}%` }} />
+            </div>
+          )}
+          <div className={styles.sub}><span>Склад {shortMoney(p.month.buy)} ₽</span><span>Мясо {shortMoney(p.month.meat)} ₽</span></div>
+        </>
+      )}
+
+      {screen === 'week' && (
+        p.weekdays.every((w) => !w.revenue) ? <p className={styles.noData}>Нет данных от кассы за эту неделю.</p> : <WeekdayBars weekdays={p.weekdays} />
+      )}
+
+      {screen === 'cashiers' && (
+        p.topCashiers.length === 0 ? <p className={styles.noData}>Нет данных от кассы за месяц.</p> : (
+          <div className={styles.dishList}>
+            {p.topCashiers.map((c, i) => (
+              <div key={c.cashier} className={styles.dishRow}>
+                <span className={styles.dishRank}>{i + 1}</span>
+                <span className={styles.dishName}>{c.cashier}</span>
+                <span className={styles.dishVal}>{shortMoney(c.revenue)} ₽</span>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {screen === 'voids' && (
+        <div className={styles.cashRow}>
+          <div className={styles.cashBlock}><span className={styles.cashLabel}>Удалено за месяц</span><span className={styles.cashVal}>{p.voidsTotal.deletedCount || '—'}</span><span className={styles.cashSub}>{shortMoney(p.voidsTotal.deletedAmount)} ₽</span></div>
+          <div className={styles.cashBlock}><span className={styles.cashLabel}>Возвраты за месяц</span><span className={styles.cashVal}>{p.voidsTotal.returnsCount || '—'}</span><span className={styles.cashSub}>{shortMoney(p.voidsTotal.returnsAmount)} ₽</span></div>
+        </div>
       )}
     </section>
   );

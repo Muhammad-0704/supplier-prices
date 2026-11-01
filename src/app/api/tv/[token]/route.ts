@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { findActiveTvLink, loadTvToday, tvPointsData } from '@/lib/tv';
+import { findActiveTvLink, loadTvMonth, loadTvToday, tvPointsData } from '@/lib/tv';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,6 @@ export async function GET(_request: Request, { params }: { params: { token: stri
 
   void db.from('tv_links').update({ last_opened_at: new Date().toISOString(), open_count: link.open_count + 1 }).eq('id', link.id);
 
-  const { day, points, hours, dishes } = await loadTvToday(db);
-  return NextResponse.json({ ok: true, day, name: link.name, points: tvPointsData(day, points, hours, dishes) });
+  const [{ day, points, hours, dishes }, month] = await Promise.all([loadTvToday(db), loadTvMonth(db)]);
+  return NextResponse.json({ ok: true, day, name: link.name, points: tvPointsData(day, points, hours, dishes, month) });
 }

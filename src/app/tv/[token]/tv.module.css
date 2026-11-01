@@ -76,6 +76,7 @@
 .cashRow { display: flex; gap: 40px; }
 .cashBlock { display: flex; flex-direction: column; gap: 4px; }
 .cashLabel { font-size: 22px; color: #9aa2ab; }
+.cashSub { font-size: 22px; color: #6b7280; }
 .cashVal { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 72px; font-weight: 700; letter-spacing: -0.02em; }
 
 .statusRow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
