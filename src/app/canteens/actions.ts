@@ -1,11 +1,13 @@
 'use server';
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { canEditDay, parseMoney } from '@/lib/canteens';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { chatKey, codeKey } from '@/lib/canteens-notify';
 import { botUsername, findStartCode, sendTo, telegramConfigured } from '@/lib/telegram';
+import { newTvToken } from '@/lib/tv';
 import { ensureAccount } from '@/lib/users';
 
 export type ActionState = { ok?: string; error?: string } | null;
@@ -159,4 +161,33 @@ export async function unlinkTelegram() {
   const { user } = await me();
   await createAdminClient().from('app_settings').delete().in('key', [chatKey(user.id), codeKey(user.id)]);
   revalidatePath('/canteens', 'layout');
+}
+
+// ---------- Ссылка-ключ для ТВ в офисе ----------
+
+export type TvLinkState = { ok?: string; url?: string; error?: string } | null;
+
+/** Новая ссылка для ТВ: крупные цифры за сегодня по точкам, без входа. */
+export async function createTvLink(_prev: TvLinkState, form: FormData): Promise<TvLinkState> {
+  try {
+    const { db, user } = await manager();
+    const name = String(form.get('name') || 'ТВ').trim().slice(0, 100) || 'ТВ';
+    const token = newTvToken();
+    const { error } = await db.from('tv_links').insert({ token, name, created_by: user.id });
+    if (error) return { error: `Не удалось создать ссылку: ${error.message}` };
+    revalidatePath('/canteens/access');
+    const h = headers();
+    const host = h.get('x-forwarded-host') || h.get('host');
+    const proto = h.get('x-forwarded-proto') || 'https';
+    return { ok: `Ссылка «${name}» готова. Откройте её в браузере ТВ.`, url: host ? `${proto}://${host}/tv/${token}` : `/tv/${token}` };
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+}
+
+/** Включить/выключить ссылку ТВ. */
+export async function setTvLinkActive(form: FormData) {
+  const { db } = await manager();
+  await db.from('tv_links').update({ active: form.get('active') === 'true' }).eq('id', String(form.get('id')));
+  revalidatePath('/canteens/access');
 }
