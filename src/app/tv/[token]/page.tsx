@@ -22,6 +22,6 @@ export default async function TvPage(props: { params: Promise<{ token: string }>
     );
   }
 
-  const { day, points } = await loadTvToday(db);
-  return <TvScreen token={params.token} name={link.name} initialDay={day} initialPoints={tvPointsData(day, points)} />;
+  const { day, points, hours, dishes } = await loadTvToday(db);
+  return <TvScreen token={params.token} name={link.name} initialDay={day} initialPoints={tvPointsData(day, points, hours, dishes)} />;
 }

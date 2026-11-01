@@ -12,6 +12,6 @@ export async function GET(_request: Request, { params }: { params: { token: stri
 
   void db.from('tv_links').update({ last_opened_at: new Date().toISOString(), open_count: link.open_count + 1 }).eq('id', link.id);
 
-  const { day, points } = await loadTvToday(db);
-  return NextResponse.json({ ok: true, day, name: link.name, points: tvPointsData(day, points) });
+  const { day, points, hours, dishes } = await loadTvToday(db);
+  return NextResponse.json({ ok: true, day, name: link.name, points: tvPointsData(day, points, hours, dishes) });
 }
