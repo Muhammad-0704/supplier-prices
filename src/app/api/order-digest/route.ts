@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { checkCronSecret } from '@/lib/cron-auth';
 import { buildDigest } from '@/lib/order-digest';
 import { loadOrder } from '@/lib/reorder-data';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -25,8 +26,7 @@ async function send(force: boolean) {
 
 /** По расписанию (pg_cron), с Authorization: Bearer <CRON_SECRET>. */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!checkCronSecret(request)) {
     return NextResponse.json({ ok: false, message: 'Нет доступа' }, { status: 401 });
   }
   return send(false);

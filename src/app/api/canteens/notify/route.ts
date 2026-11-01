@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SITE_URL } from '@/lib/alert-runner';
+import { checkCronSecret } from '@/lib/cron-auth';
 import { mskDay, mskMonth, summarize } from '@/lib/canteens';
 import { costTotals, customerMap, loadCanteens, loadCostSummary, loadIiko, loadReports, loadShipments } from '@/lib/canteens-data';
 import { buildViews } from '@/lib/canteens-view';
@@ -16,8 +17,7 @@ export const maxDuration = 60;
  *  ?kind=summary  — утром руководителю в чат прайс-доски: сводка за вчера.
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!checkCronSecret(request)) {
     return NextResponse.json({ ok: false, message: 'Нет доступа' }, { status: 401 });
   }
   if (!telegramConfigured()) return NextResponse.json({ ok: false, message: 'Telegram не настроен.' });
