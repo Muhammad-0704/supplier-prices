@@ -1,125 +1,122 @@
-/* Экран ТВ: свой тёмный фон независимо от переключателя темы — расчёт на 55" с нескольких метров. */
+/*
+ * Экран ТВ: свой тёмный фон независимо от темы, расчёт на 55" с нескольких метров.
+ *
+ * ВАЖНО: body во всём сайте задаёт line-height: 20px. Здесь шрифты 24–140px, поэтому высота строки
+ * задаётся явно (.screen и у каждого крупного элемента) — иначе строка 20px режет буквы сверху и снизу
+ * («Плов» → «I лов», «Борщ» → «Ьорщ») и крупные цифры налезают на подписи. Это и был «обрезанный шрифт».
+ *
+ * Цифры — обычным шрифтом с tabular-nums, не моноширинным: в моноширинном пробел шириной с цифру,
+ * и на 130px «46 120 ₽» разваливается на куски. Размеры — от ширины экрана (vw): одинаково на 1080p и 4K.
+ */
 
 .screen {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   background: #0b0d10;
   color: #f2f3f5;
-  /* Не var(--font-sans) (Onest с Google Fonts) — на ТВ отдельные кириллические слова
-     («Плов», «Гуляш») после переключения вкладки рендерились с обрезанной первой буквой,
-     похоже на сбой подгрузки/свопа веб-шрифта. Системный шрифт уже есть на устройстве,
-     грузить и свопать нечего. */
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  padding: 32px 40px;
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  padding: clamp(16px, 1.8vw, 36px) clamp(20px, 2.2vw, 44px);
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: clamp(14px, 1.4vw, 28px);
+  box-sizing: border-box;
 }
 
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-}
-.head h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.01em; }
-
-.tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Шапка */
+.head { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; }
+.head h1 { margin: 0; font-size: clamp(20px, 1.6vw, 32px); line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
+.tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .tab {
-  background: #15181c; border: 1px solid #262b31; color: #9aa2ab; border-radius: 999px;
-  padding: 10px 22px; font-size: 20px; font-weight: 600; cursor: pointer; font-family: inherit;
+  font-family: inherit; line-height: 1.2; cursor: pointer;
+  background: transparent; border: 1px solid #262b31; color: #8b939c; border-radius: 999px;
+  padding: 0.45em 1.05em; font-size: clamp(14px, 1vw, 20px); font-weight: 600;
 }
-.tab:hover { border-color: #3a4048; }
+.tab:hover { border-color: #3a4048; color: #cfd3d8; }
 .tab:focus-visible { outline: 2px solid #8ab0ff; outline-offset: 2px; }
-.tabOn { background: #262b31; color: #f2f3f5; border-color: #3a4048; }
+.tabOn, .tabOn:hover { background: #f2f3f5; border-color: #f2f3f5; color: #0b0d10; }
+.headRight { display: flex; align-items: baseline; gap: 0.8em; font-size: clamp(16px, 1.2vw, 24px); line-height: 1.2; color: #8b939c; }
+.clock { color: #f2f3f5; font-weight: 600; }
+.warn { color: #e6b422; }
 
-.headRight { display: flex; align-items: baseline; gap: 20px; font-size: 24px; color: #9aa2ab; }
-.clock { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: #f2f3f5; }
-.warn { color: #e6b422; font-size: 22px; }
-
-.grid {
-  flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  align-items: stretch;
-}
-
-.empty { font-size: 28px; color: #9aa2ab; }
+/* Карточки точек */
+.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: clamp(14px, 1.3vw, 24px); }
+.empty { font-size: 28px; color: #8b939c; }
 
 .card {
-  flex: 1 1 420px;
-  min-width: 420px;
-  background: #15181c;
-  border: 1px solid #262b31;
+  min-height: 0; overflow: hidden;
+  background: #14171b; border: 1px solid #23282e; border-top: 6px solid var(--tv-zone);
   border-radius: 20px;
-  padding: 48px 52px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 16px;
-  border-top: 6px solid var(--tv-zone, #3a4048);
+  padding: clamp(20px, 2.2vw, 44px) clamp(22px, 2.5vw, 50px);
+  display: flex; flex-direction: column; gap: clamp(16px, 1.8vw, 36px);
 }
-
-.name { margin: 0 0 8px; font-size: 40px; font-weight: 650; color: #cfd3d8; }
-.revenue { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 136px; line-height: 1.05; font-weight: 700; letter-spacing: -0.02em; }
-.fc { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 64px; font-weight: 700; color: var(--tv-zone, #9aa2ab); }
-
-.fcTrack { position: relative; height: 16px; border-radius: 8px; background: #1f2328; margin: 2px 0 10px; max-width: 420px; }
-.fcFill { position: absolute; inset: 0 auto 0 0; border-radius: 8px; background: var(--tv-zone, #9aa2ab); }
-.fcNorm { position: absolute; top: -5px; bottom: -5px; width: 3px; margin-left: -1.5px; background: #f2f3f5; opacity: 0.45; }
-
-.sub { display: flex; gap: 32px; font-size: 26px; color: #9aa2ab; margin-top: 8px; }
-
 .zone_good { --tv-zone: #5bd08d; }
 .zone_norm { --tv-zone: #e6b422; }
 .zone_high { --tv-zone: #ff8a7a; }
 .zone_none { --tv-zone: #3a4048; }
 
-/* Второй слайд: наличные/безнал, сдан ли отчёт, расхождение с кассой */
-.cashRow { display: flex; gap: 40px; }
-.cashBlock { display: flex; flex-direction: column; gap: 4px; }
-.cashLabel { font-size: 22px; color: #9aa2ab; }
-.cashSub { font-size: 22px; color: #6b7280; }
-.cashVal { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 72px; font-weight: 700; letter-spacing: -0.02em; }
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.name { margin: 0; font-size: clamp(26px, 2.1vw, 42px); line-height: 1.15; font-weight: 700; color: #f2f3f5; }
 
-.statusRow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
-.badgeGood, .badgeBad, .badgeWarn {
-  display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; font-size: 24px; font-weight: 650;
+.body { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: clamp(18px, 2.1vw, 42px); padding-top: clamp(8px, 1.6vw, 32px); }
+
+.label { display: block; font-size: clamp(15px, 1.05vw, 22px); line-height: 1.3; font-weight: 500; color: #8b939c; }
+.lead { margin: 0; font-size: clamp(18px, 1.35vw, 28px); line-height: 1.3; color: #cfd3d8; }
+.lead b { color: #f2f3f5; }
+
+.hero { font-size: clamp(64px, 6.6vw, 136px); line-height: 1.05; font-weight: 700; letter-spacing: -0.03em; white-space: nowrap; margin-top: 0.08em; }
+
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px, 1.2vw, 24px); }
+.stat { background: #1a1e23; border-radius: 14px; padding: clamp(12px, 1.1vw, 22px) clamp(14px, 1.3vw, 26px); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.statVal { font-size: clamp(30px, 2.8vw, 58px); line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; }
+.statSub { font-size: clamp(14px, 1vw, 20px); line-height: 1.3; color: #8b939c; }
+
+/* Фудкост: подпись · значение · шкала 0–60% с чертой нормы 40% */
+.fcRow { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: clamp(12px, 1.2vw, 24px); }
+.fcVal { font-size: clamp(30px, 2.8vw, 58px); line-height: 1.1; font-weight: 700; color: var(--tv-zone); white-space: nowrap; }
+.zone_none .fcVal { color: #6b7280; }
+.fcTrack { position: relative; height: 14px; border-radius: 7px; background: #23282e; }
+.fcFill { position: absolute; inset: 0 auto 0 0; border-radius: 7px; background: var(--tv-zone); }
+.fcNorm { position: absolute; top: -6px; bottom: -6px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: #f2f3f5; opacity: 0.5; }
+
+.foot2 { margin-top: auto; display: flex; flex-wrap: wrap; gap: 8px 2em; font-size: clamp(16px, 1.2vw, 24px); line-height: 1.3; color: #8b939c; padding-top: clamp(12px, 1.2vw, 24px); border-top: 1px solid #23282e; }
+.warnText { color: #e6b422; font-weight: 600; }
+
+.badgeGood, .badgeBad {
+  display: inline-flex; align-items: center; gap: 0.5em; white-space: nowrap;
+  padding: 0.35em 0.9em; border-radius: 999px; font-size: clamp(15px, 1.05vw, 22px); line-height: 1.2; font-weight: 650;
 }
-.badgeGood { background: rgba(91, 208, 141, 0.16); color: #5bd08d; }
-.badgeBad { background: rgba(255, 138, 122, 0.16); color: #ff8a7a; }
-.badgeWarn { background: rgba(230, 180, 34, 0.16); color: #e6b422; }
+.badgeGood::before, .badgeBad::before { content: ''; width: 0.55em; height: 0.55em; border-radius: 50%; background: currentColor; }
+.badgeGood { background: rgba(91, 208, 141, 0.14); color: #5bd08d; }
+.badgeBad { background: rgba(255, 138, 122, 0.14); color: #ff8a7a; }
 
-.noData { font-size: 24px; color: #9aa2ab; margin: 0; }
+.noData { flex: 1; display: flex; align-items: center; margin: 0; font-size: clamp(18px, 1.35vw, 28px); line-height: 1.3; color: #6b7280; }
 
-/* Экран «По часам» */
-.peak { font-size: 28px; color: #cfd3d8; margin-bottom: 4px; }
-.bars { flex: 1; display: flex; align-items: flex-end; gap: 6px; min-height: 320px; }
-.barCol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; }
-.barTrack { flex: 1; width: 100%; max-width: 28px; display: flex; align-items: flex-end; }
-.bar { width: 100%; background: var(--tv-zone, #8ab0ff); border-radius: 4px 4px 0 0; }
-.barLabel { font-size: 16px; color: #6b7280; }
+/* Столбики: часы, дни недели */
+.bars { flex: 1; min-height: 200px; display: flex; align-items: stretch; gap: clamp(4px, 0.5vw, 10px); }
+.barCol { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.barVal { font-size: clamp(12px, 0.85vw, 18px); line-height: 1.2; color: #8b939c; white-space: nowrap; min-height: 1.2em; }
+.barTrack { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.bar { width: 100%; border-radius: 6px 6px 0 0; background: #3a4048; }
+.barHot { background: var(--tv-zone, #5bd08d); }
+.zone_none .barHot { background: #8ab0ff; }
+.barLabel { font-size: clamp(13px, 0.95vw, 20px); line-height: 1.2; color: #8b939c; }
 
-/* Экран «Блюда» — div, не <ol>/<li>: номер оформлен отдельным кружком с фоном,
-   чтобы он ни при каких условиях не мог визуально слиться с первой буквой названия. */
-.dishList { display: flex; flex-direction: column; gap: 20px; }
-.dishRow { display: flex; align-items: center; gap: 20px; font-size: 32px; }
-.dishRank {
-  display: flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; flex: none;
-  border-radius: 50%; background: #20252b; color: #9aa2ab;
-  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
-}
-.dishName { flex: 1; color: #cfd3d8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dishVal { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 700; flex: none; }
+/* Списки: блюда, кассиры */
+.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: clamp(12px, 1.1vw, 22px); padding: clamp(10px, 0.9vw, 18px) 0; border-bottom: 1px solid #23282e; }
+.row:last-child { border-bottom: 0; }
+.rank { width: 1.9em; height: 1.9em; border-radius: 50%; background: #1f2328; color: #8b939c; display: flex; align-items: center; justify-content: center; font-size: clamp(14px, 0.95vw, 20px); line-height: 1; font-weight: 700; }
+.rowName { min-width: 0; font-size: clamp(20px, 1.6vw, 32px); line-height: 1.25; color: #f2f3f5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.1em 0; }
+.rowNote { margin-left: 0.6em; font-size: 0.7em; color: #6b7280; }
+.rowVal { font-size: clamp(20px, 1.6vw, 32px); line-height: 1.25; font-weight: 700; white-space: nowrap; }
 
-.foot { text-align: center; font-size: 18px; color: #4b5156; }
+.foot { margin: 0; text-align: center; font-size: clamp(12px, 0.85vw, 16px); line-height: 1.3; color: #4b5156; }
 
+/* Узкий экран (телефон, проверка на ноутбуке): карточки друг под другом, страница прокручивается */
 @media (max-width: 900px) {
-  .screen { padding: 20px; }
-  .revenue { font-size: 72px; }
-  .cashVal { font-size: 48px; }
-  .card { min-width: 280px; padding: 24px; }
-  .dishRow { font-size: 20px; }
+  .screen { height: auto; min-height: 100vh; overflow: visible; }
+  .grid { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr; }
 }
