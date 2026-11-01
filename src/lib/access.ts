@@ -30,7 +30,7 @@ export const SERVICES: Record<ServiceId, { title: string; href: string; about: s
 
 /** Кто вошёл и к каким сервисам у него есть доступ. Без входа — на страницу входа. */
 export async function getAccess(): Promise<Access> {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
   const { data: p } = await db.from('profiles').select('full_name, role, canteen_role').eq('id', user.id).maybeSingle();

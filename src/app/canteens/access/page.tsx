@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function AccessPage() {
   const me = await requireCanteens();
   if (me.canteenRole !== 'manager') redirect('/canteens');
-  const db = createClient();
+  const db = await createClient();
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
 
   const [{ data: canteens }, { data: links }, { data: people }, { data: admins }, { data: buyers }, users] = await Promise.all([

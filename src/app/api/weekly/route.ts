@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
 /** Кнопка «Отправить сводку сейчас» — только руководитель. */
 export async function POST() {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, message: 'Войдите в аккаунт.' }, { status: 401 });
   const { data } = await db.from('profiles').select('role').eq('id', user.id).single();

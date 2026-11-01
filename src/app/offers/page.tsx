@@ -23,8 +23,9 @@ function origin() {
   return process.env.NEXT_PUBLIC_SITE_URL || 'https://pricedoska.vercel.app';
 }
 
-export default async function OffersPage({ searchParams }: { searchParams: { tab?: string; view?: string } }) {
-  const db = createClient();
+export default async function OffersPage(props: { searchParams: Promise<{ tab?: string; view?: string }> }) {
+  const searchParams = await props.searchParams;
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
   const { data: me } = await db.from('profiles').select('role, full_name').eq('id', user.id).single();
@@ -45,7 +46,7 @@ export default async function OffersPage({ searchParams }: { searchParams: { tab
 }
 
 async function OffersTab({ archive }: { archive: boolean }) {
-  const db = createClient();
+  const db = await createClient();
   const since = new Date(Date.now() - 180 * 86_400_000).toISOString();
   const { data: allSubs } = await db.from('offer_submissions').select('id, link_id, contact, comment, created_at, source, file_name').gte('created_at', since).order('created_at', { ascending: false }).limit(300);
   if (!allSubs?.length) {
@@ -137,14 +138,14 @@ async function OffersTab({ archive }: { archive: boolean }) {
 }
 
 async function ImportTab({ userId }: { userId: string }) {
-  const data = await loadBoard(createClient(), userId);
+  const data = await loadBoard(await createClient(), userId);
   const items = data.items.filter((i) => !i.hidden).map((i) => ({ id: i.id, name: i.name, unit: i.unit, bestPrice: i.bestPrice, bestSupplierId: i.bestSupplierId, measure: i.measure ?? null }));
   const suppliers = data.suppliers.map((s) => ({ id: s.id, name: s.name }));
   return <PriceImport items={items} suppliers={suppliers} supplierNames={Object.fromEntries(suppliers.map((s) => [s.id, s.name]))} />;
 }
 
 async function LinksTab() {
-  const db = createClient();
+  const db = await createClient();
   const [{ data: links }, { data: suppliers }, { data: itemRows }, { data: subs }] = await Promise.all([
     db.from('offer_links').select('*').order('created_at', { ascending: false }),
     db.from('supplier_usage').select('supplier_id, docs_90d, docs_total').order('docs_90d', { ascending: false }),

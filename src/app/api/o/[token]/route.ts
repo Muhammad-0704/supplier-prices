@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 const MAX_PER_HOUR = 12;
 
 /** Приём предложения от поставщика. Ответ содержит только «ниже / на уровне / выше» — без наших цифр. */
-export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const db = createAdminClient();
   const link = await findActiveLink(db, params.token);
   if (!link) return NextResponse.json({ error: 'Ссылка недействительна или отключена.' }, { status: 404 });

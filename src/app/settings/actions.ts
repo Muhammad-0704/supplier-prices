@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { connectTelegram } from '@/lib/telegram';
 
 async function requireManager() {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('Войдите в аккаунт.');
   const { data } = await db.from('profiles').select('role').eq('id', user.id).single();

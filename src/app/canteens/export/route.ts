@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 /** Месячный отчёт в Excel. Точки — те, что видит вошедший; колонки по закупочным — только руководителю. */
 export async function GET(request: NextRequest) {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, message: 'Войдите в аккаунт.' }, { status: 401 });
   const { data: p } = await db.from('profiles').select('canteen_role').eq('id', user.id).maybeSingle();

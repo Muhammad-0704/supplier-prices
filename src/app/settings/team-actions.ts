@@ -7,7 +7,7 @@ import { ensureAccount } from '@/lib/users';
 export type ActionState = { ok?: string; error?: string } | null;
 
 async function requireManager() {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('Войдите в аккаунт.');
   const { data } = await db.from('profiles').select('role').eq('id', user.id).single();
@@ -48,7 +48,7 @@ export async function setRole(form: FormData) {
   const id = String(form.get('id'));
   const role = form.get('role') === 'manager' ? 'manager' : 'staff';
   if (id === me.id && role !== 'manager') return; // нельзя снять роль с самого себя и остаться без руководителя
-  const db = createClient();
+  const db = await createClient();
   await db.from('profiles').update({ role }).eq('id', id);
   revalidatePath('/settings');
 }

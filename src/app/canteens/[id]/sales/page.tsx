@@ -14,9 +14,13 @@ import { createClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 /** Продажи точки за месяц из iiko: поток людей, средний чек, дни недели, часы, блюда; руководителю — кассиры и удаления. */
-export default async function SalesPage({ params, searchParams }: { params: { id: string }; searchParams: { month?: string } }) {
+export default async function SalesPage(
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ month?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const me = await requireCanteens();
-  const db = createClient();
+  const db = await createClient();
   const all = await loadCanteens(db);
   const canteen = all.find((c) => c.id === params.id);
   if (!canteen) notFound();

@@ -20,10 +20,13 @@ const ORDER: (keyof typeof ISSUE)[] = ['below_cost', 'low', 'manual', 'high'];
 const pctFmt = (v: number | null) => (v == null ? '—' : `${(v * 100).toFixed(1).replace('.', ',')}%`);
 
 /** Руководитель: наценка склада по точкам и строки, где цена расходной не равна «последняя закупка + 10%». */
-export default async function MarkupPage({ searchParams }: { searchParams: { month?: string; c?: string; show?: string } }) {
+export default async function MarkupPage(
+  props: { searchParams: Promise<{ month?: string; c?: string; show?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const me = await requireCanteens();
   if (me.canteenRole !== 'manager') redirect('/canteens');
-  const db = createClient();
+  const db = await createClient();
   const month = isMonth(searchParams.month) ? searchParams.month : mskMonth();
   const canteens = await loadCanteens(db);
   const only = canteens.find((c) => c.id === searchParams.c)?.id;

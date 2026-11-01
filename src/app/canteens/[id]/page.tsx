@@ -23,9 +23,13 @@ export const dynamic = 'force-dynamic';
 const qtyFmt = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 3 });
 
 /** Точка за месяц: отчёт за день, по дням — отгружено со склада и выручка, внутри дня — накладные и товары. */
-export default async function CanteenPage({ params, searchParams }: { params: { id: string }; searchParams: { month?: string } }) {
+export default async function CanteenPage(
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ month?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const me = await requireCanteens();
-  const db = createClient();
+  const db = await createClient();
   const all = await loadCanteens(db);
   const canteen = all.find((c) => c.id === params.id);
   if (!canteen) notFound();

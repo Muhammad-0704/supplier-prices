@@ -7,7 +7,7 @@ export async function signIn(_prev: { error: string } | null, form: FormData): P
   const password = String(form.get('password') || '');
   if (!email || !password) return { error: 'Введите почту и пароль.' };
 
-  const db = createClient();
+  const db = await createClient();
   const { error } = await db.auth.signInWithPassword({ email, password });
   if (error) {
     return { error: error.message.includes('Invalid login') ? 'Неверная почта или пароль.' : `Не удалось войти: ${error.message}` };
