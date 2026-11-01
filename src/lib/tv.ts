@@ -2,9 +2,12 @@ import 'server-only';
 import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { buildViews, type PointView } from './canteens-view';
-import { customerMap, loadCanteens } from './canteens-data';
-import { mskDay, summarize } from './canteens';
-import { byHour, menu, type DishIn, type HourIn } from './iiko-insights';
+import { customerMap, loadCanteens, loadIiko, loadReports, loadShipments } from './canteens-data';
+import { mskDay, mskMonth, summarize } from './canteens';
+import {
+  byHour, byWeekday, cashiers, menu, voids,
+  type DishIn, type HourIn, type RevDay, type StaffIn, type VoidIn,
+} from './iiko-insights';
 
 export interface TvLink {
   id: string;
@@ -81,8 +84,47 @@ export async function loadTvToday(db: SupabaseClient): Promise<{ day: string; po
   return { day, points, hours, dishes };
 }
 
+/**
+ * Данные за месяц (с начала текущего месяца по сегодня): итог по точке, дни недели,
+ * кассиры и удаления/возвраты. Кассиры и удаления — из таблиц, открытых в RLS только
+ * руководителю; ТВ их всё равно показывает (решение владельца) — это экран без входа,
+ * его отдельно отзывают в «Доступах», когда он не нужен.
+ */
+export async function loadTvMonth(db: SupabaseClient): Promise<{
+  points: PointView[]; weekday: Map<string, RevDay[]>; staff: Map<string, StaffIn[]>; voidRows: Map<string, VoidIn[]>;
+}> {
+  const month = mskMonth();
+  const canteens = await loadCanteens(db);
+  const canteenIds = canteens.map((c) => c.id);
+  const since = `${month}-01`;
+
+  const [shipments, reports, iiko, { data: staffRows }, { data: voidData }] = await Promise.all([
+    loadShipments(db, canteens, month),
+    loadReports(db, canteens, month),
+    loadIiko(db, canteens, month),
+    canteenIds.length
+      ? db.from('iiko_staff').select('canteen_id, day, cashier, revenue, checks, discount').in('canteen_id', canteenIds).gte('day', since)
+      : Promise.resolve({ data: [] }),
+    canteenIds.length
+      ? db.from('iiko_voids').select('canteen_id, day, kind, cashier, dish, qty, amount, writeoff').in('canteen_id', canteenIds).gte('day', since)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const totals = summarize(canteenIds, customerMap(canteens), shipments, reports, iiko);
+  // costs=null -> по ценам расходных, а не по закупочным — как и в loadTvToday
+  const points = buildViews(canteens, totals, null);
+
+  const weekday = groupBy(iiko.map((i) => ({ canteen_id: i.canteen_id, day: i.day, total: i.total, checks: i.checks ?? 0 })));
+  const staff = groupBy((staffRows ?? []).map((s) => ({ canteen_id: s.canteen_id, day: s.day, cashier: s.cashier, revenue: Number(s.revenue) || 0, checks: Number(s.checks) || 0, discount: Number(s.discount) || 0 })));
+  const voidRows = groupBy((voidData ?? []).map((v) => ({ canteen_id: v.canteen_id, day: v.day, kind: v.kind, cashier: v.cashier, dish: v.dish, qty: Number(v.qty) || 0, amount: Number(v.amount) || 0, writeoff: v.writeoff })));
+  return { points, weekday, staff, voidRows };
+}
+
 export interface TvHour { hour: number; revenue: number }
 export interface TvDish { dish: string; qty: number; revenue: number }
+export interface TvWeekday { label: string; revenue: number | null; checks: number | null }
+export interface TvCashier { cashier: string; revenue: number; checks: number; voidRate: number | null }
+export interface TvVoids { deletedCount: number; deletedAmount: number; returnsCount: number; returnsAmount: number }
 
 export interface TvPointData {
   id: string; name: string;
@@ -97,20 +139,38 @@ export interface TvPointData {
   peakHour: TvHour | null;
   /** Топ-5 блюд по выручке сегодня, из iiko */
   topDishes: TvDish[];
+  /** С начала месяца по сегодня */
+  month: { revenue: number; foodcost: number | null; buy: number; meat: number };
+  weekdays: TvWeekday[];
+  /** Топ-5 кассиров по выручке за месяц */
+  topCashiers: TvCashier[];
+  voidsTotal: TvVoids;
 }
 
 /** Сериализуемые поля для ответа API: PointView.byDay — Map, в JSON не едет. */
-export function tvPointsData(day: string, points: PointView[], hours: Map<string, HourIn[]>, dishes: Map<string, DishIn[]>): TvPointData[] {
+export function tvPointsData(
+  day: string, points: PointView[], hours: Map<string, HourIn[]>, dishes: Map<string, DishIn[]>,
+  month: { points: PointView[]; weekday: Map<string, RevDay[]>; staff: Map<string, StaffIn[]>; voidRows: Map<string, VoidIn[]> },
+): TvPointData[] {
+  const monthByPoint = new Map(month.points.map((p) => [p.id, p]));
   return points.map((p) => {
     const d = p.byDay.get(day);
     const { hours: hourStats, peak } = byHour(hours.get(p.id) ?? []);
     const { top } = menu(dishes.get(p.id) ?? [], 5, 0);
+    const m = monthByPoint.get(p.id);
+    const weekdayStats = byWeekday(month.weekday.get(p.id) ?? []);
+    const cashierStats = cashiers(month.staff.get(p.id) ?? [], month.voidRows.get(p.id) ?? []);
+    const v = voids(month.voidRows.get(p.id) ?? []);
     return {
       id: p.id, name: p.name, revenue: p.revenue, foodcost: p.foodcost, buy: p.buy, meat: p.meat,
       cash: p.cash, card: p.card, checks: d?.checks ?? 0, reported: d?.reported ?? false, mismatch: d?.mismatch ?? null,
       hours: hourStats.map((h) => ({ hour: h.hour, revenue: h.revenue })),
       peakHour: peak ? { hour: peak.hour, revenue: peak.revenue } : null,
       topDishes: top.map((t) => ({ dish: t.dish, qty: t.qty, revenue: t.revenue })),
+      month: { revenue: m?.revenue ?? 0, foodcost: m?.foodcost ?? null, buy: m?.buy ?? 0, meat: m?.meat ?? 0 },
+      weekdays: weekdayStats.map((w) => ({ label: w.label, revenue: w.revenue, checks: w.checks })),
+      topCashiers: cashierStats.slice(0, 5).map((c) => ({ cashier: c.cashier, revenue: c.revenue, checks: c.checks, voidRate: c.voidRate })),
+      voidsTotal: { deletedCount: v.deleted.count, deletedAmount: v.deleted.amount, returnsCount: v.returns.count, returnsAmount: v.returns.amount },
     };
   });
 }

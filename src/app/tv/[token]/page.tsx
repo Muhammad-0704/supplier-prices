@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { findActiveTvLink, loadTvToday, tvPointsData } from '@/lib/tv';
+import { findActiveTvLink, loadTvMonth, loadTvToday, tvPointsData } from '@/lib/tv';
 import { TvScreen } from './TvScreen';
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +22,6 @@ export default async function TvPage(props: { params: Promise<{ token: string }>
     );
   }
 
-  const { day, points, hours, dishes } = await loadTvToday(db);
-  return <TvScreen token={params.token} name={link.name} initialDay={day} initialPoints={tvPointsData(day, points, hours, dishes)} />;
+  const [{ day, points, hours, dishes }, month] = await Promise.all([loadTvToday(db), loadTvMonth(db)]);
+  return <TvScreen token={params.token} name={link.name} initialDay={day} initialPoints={tvPointsData(day, points, hours, dishes, month)} />;
 }
