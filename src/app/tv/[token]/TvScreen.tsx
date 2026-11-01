@@ -31,6 +31,7 @@ export interface TvPoint {
 const POLL_MS = 60_000;
 
 const SCREENS = [
+  { id: 'overview', label: 'Сводка' },
   { id: 'reports', label: 'Отчёты' },
   { id: 'sales', label: 'Продажи' },
   { id: 'hours', label: 'По часам' },
@@ -58,13 +59,13 @@ function money(v: number): string {
   return `${nf.format(Math.round(v))}\u00a0₽`;
 }
 
-function Bars({ items, unit }: { items: { key: string; label: string; value: number | null; hot?: boolean }[]; unit?: (v: number) => string }) {
+function Bars({ items, unit, values = true }: { items: { key: string; label: string; value: number | null; hot?: boolean }[]; unit?: (v: number) => string; values?: boolean }) {
   const max = Math.max(1, ...items.map((i) => i.value ?? 0));
   return (
     <div className={styles.bars}>
       {items.map((i) => (
         <div key={i.key} className={styles.barCol}>
-          <span className={styles.barVal}>{i.value ? (unit ? unit(i.value) : nf.format(Math.round(i.value))) : ''}</span>
+          {values && <span className={styles.barVal}>{i.value ? (unit ? unit(i.value) : nf.format(Math.round(i.value))) : ''}</span>}
           <div className={styles.barTrack}>
             <div className={`${styles.bar} ${i.hot ? styles.barHot : ''}`} style={{ height: `${i.value ? Math.max(3, (i.value / max) * 100) : 0}%` }} />
           </div>
@@ -116,16 +117,83 @@ function Rows({ rows }: { rows: { key: string; name: string; note?: string; valu
 
 const NoData = ({ text }: { text: string }) => <p className={styles.noData}>{text}</p>;
 
+/** Сводка: всё главное по точке на одном экране — без прокрутки и переключения вкладок */
+function Overview({ p }: { p: TvPoint }) {
+  const todayWd = (new Date().getUTCDay() + 6) % 7; // по Москве день совпадает почти всегда; точность здесь не критична
+  const usual = p.weekdays[todayWd]?.revenue ?? null;
+  const v = p.voidsTotal;
+  return (
+    <div className={styles.ov}>
+      <div className={styles.ovKpis}>
+        <div className={styles.ovMain}>
+          <span className={styles.label}>Выручка сегодня</span>
+          <span className={styles.ovHero}>{money(p.revenue)}</span>
+          {usual ? <span className={styles.ovNote}>обычно за {p.weekdays[todayWd].label.toLowerCase()} — {money(usual)}</span> : null}
+        </div>
+        <div className={styles.ovSide}>
+          <div className={styles.ovMini}><span className={styles.label}>Покупателей</span><b>{p.checks ? nf.format(p.checks) : '—'}</b></div>
+          <div className={styles.ovMini}><span className={styles.label}>Средний чек</span><b>{p.checks > 0 ? money(p.revenue / p.checks) : '—'}</b></div>
+        </div>
+      </div>
+
+      <Foodcost value={p.foodcost} label="Фудкост" />
+
+      <div className={styles.ovLine}>
+        <span>Нал <b>{money(p.cash)}</b></span>
+        <span>Безнал <b>{money(p.card)}</b></span>
+        <span>Склад <b>{money(p.buy)}</b></span>
+        <span>Мясо <b>{p.meat ? money(p.meat) : '—'}</b></span>
+      </div>
+
+      <div className={styles.ovHours}>
+        {p.hours.length ? (
+          <>
+            <span className={styles.label}>По часам{p.peakHour ? ` · пик ${p.peakHour.hour}:00–${p.peakHour.hour + 1}:00, ${money(p.peakHour.revenue)}` : ''}</span>
+            <Bars values={false} items={p.hours.map((h) => ({ key: String(h.hour), label: String(h.hour), value: h.revenue, hot: p.peakHour?.hour === h.hour }))} />
+          </>
+        ) : <span className={styles.ovEmpty}>По часам — касса за сегодня ещё ничего не прислала</span>}
+      </div>
+
+      <div className={styles.ovCols}>
+        <div className={styles.ovCol}>
+          <span className={styles.label}>Топ блюд сегодня</span>
+          {p.topDishes.length ? (
+            <ol className={styles.ovList}>
+              {p.topDishes.map((d, i) => (
+                <li key={d.dish}><span className={styles.ovRank}>{i + 1}</span><span className={styles.ovName}>{d.dish}</span><b>{money(d.revenue)}</b></li>
+              ))}
+            </ol>
+          ) : <span className={styles.ovEmpty}>Нет данных от кассы</span>}
+        </div>
+        <div className={styles.ovCol}>
+          <span className={styles.label}>С начала месяца</span>
+          <ul className={styles.ovList}>
+            <li><span className={styles.ovName}>Выручка</span><b>{money(p.month.revenue)}</b></li>
+            <li><span className={styles.ovName}>Фудкост</span><b className={styles[`fc_${fcZone(p.month.foodcost)}`]}>{fcText(p.month.foodcost)}</b></li>
+            <li><span className={styles.ovName}>Склад + мясо</span><b>{money(p.month.buy + p.month.meat)}</b></li>
+            <li><span className={styles.ovName}>Удалено / возвраты</span><b>{v.deletedCount || v.returnsCount ? `${v.deletedCount} / ${v.returnsCount}` : '—'}</b></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PointCard({ p, screen }: { p: TvPoint; screen: ScreenId }) {
   const zone = fcZone(screen === 'month' ? p.month.foodcost : p.foodcost);
   return (
     <section className={`${styles.card} ${styles[`zone_${zone}`]}`}>
       <header className={styles.cardHead}>
         <h2 className={styles.name}>{p.name}</h2>
-        {(screen === 'reports' || screen === 'sales') && (
-          <span className={p.reported ? styles.badgeGood : styles.badgeBad}>{p.reported ? 'Отчёт сдан' : 'Отчёт не сдан'}</span>
+        {(screen === 'overview' || screen === 'reports' || screen === 'sales') && (
+          <span className={styles.badges}>
+            {screen === 'overview' && p.mismatch != null && <span className={styles.badgeWarn}>Расхождение {money(Math.abs(p.mismatch))}</span>}
+            <span className={p.reported ? styles.badgeGood : styles.badgeBad}>{p.reported ? 'Отчёт сдан' : 'Отчёт не сдан'}</span>
+          </span>
         )}
       </header>
+
+      {screen === 'overview' && <Overview p={p} />}
 
       {screen === 'reports' && (
         <div className={styles.body}>
@@ -220,7 +288,7 @@ export function TvScreen({ token, name, initialDay, initialPoints }: { token: st
   const [points, setPoints] = useState(initialPoints);
   const [stale, setStale] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
-  const [screen, setScreen] = useState<ScreenId>('reports');
+  const [screen, setScreen] = useState<ScreenId>('overview');
 
   useEffect(() => {
     async function poll() {
