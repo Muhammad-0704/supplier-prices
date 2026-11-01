@@ -9,7 +9,8 @@ export async function Header({ role, userName, current, children }: { role: Role
   // Счётчик новых предложений от поставщиков — только руководителю
   let newOffers = 0;
   if (role === 'manager') {
-    const { count } = await createClient().from('offer_lines').select('id', { count: 'exact', head: true }).eq('status', 'new');
+    const db = await createClient();
+    const { count } = await db.from('offer_lines').select('id', { count: 'exact', head: true }).eq('status', 'new');
     newOffers = count ?? 0;
   }
   return (

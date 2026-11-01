@@ -5,8 +5,9 @@ import type { HistoryPoint } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 /** История закупочных цен товара за 180 дней, включая склеенные с ним карточки. Права проверяет RLS. */
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const db = createClient();
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ history: [] }, { status: 401 });
 

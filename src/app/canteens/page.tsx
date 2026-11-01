@@ -11,9 +11,10 @@ import { createClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 /** Все точки за месяц: руководитель видит все и общий итог; админ — свои (одна точка — сразу её страница). */
-export default async function CanteensPage({ searchParams }: { searchParams: { month?: string } }) {
+export default async function CanteensPage(props: { searchParams: Promise<{ month?: string }> }) {
+  const searchParams = await props.searchParams;
   const me = await requireCanteens();
-  const db = createClient();
+  const db = await createClient();
   const canteens = await loadCanteens(db);
   if (me.canteenRole === 'admin' && canteens.length === 1) redirect(`/canteens/${canteens[0].id}`);
 

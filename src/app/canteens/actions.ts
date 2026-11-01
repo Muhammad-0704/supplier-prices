@@ -11,7 +11,7 @@ import { ensureAccount } from '@/lib/users';
 export type ActionState = { ok?: string; error?: string } | null;
 
 async function me() {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('Войдите в аккаунт.');
   const { data } = await db.from('profiles').select('canteen_role').eq('id', user.id).maybeSingle();

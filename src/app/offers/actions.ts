@@ -7,7 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 async function requireManager() {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) throw new Error('Войдите в аккаунт.');
   const { data } = await db.from('profiles').select('role').eq('id', user.id).single();
@@ -15,8 +15,8 @@ async function requireManager() {
   return { db, user };
 }
 
-function origin() {
-  const h = headers();
+async function origin() {
+  const h = await headers();
   const host = h.get('x-forwarded-host') || h.get('host');
   const proto = h.get('x-forwarded-proto') || 'https';
   return host ? `${proto}://${host}` : '';
@@ -55,7 +55,7 @@ export async function createLink(_prev: CreateLinkState, form: FormData): Promis
     });
     if (error) return { error: `Не удалось создать ссылку: ${error.message}` };
     revalidatePath('/offers');
-    return { ok: `Ссылка для «${company}» готова. Скопируйте и отправьте её поставщику.`, url: `${origin()}/o/${token}` };
+    return { ok: `Ссылка для «${company}» готова. Скопируйте и отправьте её поставщику.`, url: `${await origin()}/o/${token}` };
   } catch (e) {
     return { error: (e as Error).message };
   }

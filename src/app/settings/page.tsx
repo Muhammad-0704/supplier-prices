@@ -29,8 +29,9 @@ const TABS: { id: Tab; label: string; manager: boolean }[] = [
   { id: 'onec', label: '1С', manager: true },
 ];
 
-export default async function SettingsPage({ searchParams }: { searchParams: { tab?: string } }) {
-  const db = createClient();
+export default async function SettingsPage(props: { searchParams: Promise<{ tab?: string }> }) {
+  const searchParams = await props.searchParams;
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) redirect('/login');
   const { data: me } = await db.from('profiles').select('role, full_name').eq('id', user.id).maybeSingle();
@@ -77,7 +78,7 @@ function ProfileTab({ name, email, role }: { name: string; email: string; role: 
 }
 
 async function TeamTab({ meId }: { meId: string }) {
-  const db = createClient();
+  const db = await createClient();
   const [{ data: profiles }, users] = await Promise.all([
     db.from('profiles').select('id, full_name, role, created_at').not('role', 'is', null).order('created_at'),
     createAdminClient().auth.admin.listUsers({ perPage: 200 }),
@@ -119,7 +120,7 @@ async function TeamTab({ meId }: { meId: string }) {
 }
 
 async function NotifyTab() {
-  const db = createClient();
+  const db = await createClient();
   const [chatId, th] = await Promise.all([getChatId(db), loadThresholds(db)]);
   const connected = telegramConfigured() && !!chatId;
   return (
@@ -131,7 +132,7 @@ async function NotifyTab() {
 }
 
 async function RequestTab() {
-  const db = createClient();
+  const db = await createClient();
   const [{ data: flags }, { data: sups }, { data: usage }, chatId] = await Promise.all([
     db.from('supplier_flags').select('supplier_id, note, updated_at').eq('skip_request', true),
     db.from('suppliers').select('id, name'),
@@ -176,7 +177,7 @@ async function RequestTab() {
 }
 
 async function OnecTab() {
-  const db = createClient();
+  const db = await createClient();
   const { data: runs } = await db.from('sync_runs').select('id, started_at, status, trigger, message').order('started_at', { ascending: false }).limit(20);
   return (
     <section className="card-box">

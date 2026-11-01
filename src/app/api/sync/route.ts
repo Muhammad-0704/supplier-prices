@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
 /** Кнопка «Обновить из 1С»: любой участник прайс-доски или «Центра Питания». */
 export async function POST() {
-  const db = createClient();
+  const db = await createClient();
   const { data: { user } } = await db.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, message: 'Войдите в аккаунт.' }, { status: 401 });
   const { data: profile } = await db.from('profiles').select('role, canteen_role').eq('id', user.id).maybeSingle();

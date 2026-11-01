@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Запрос цен', robots: { index: false, follow: false } };
 
 /** Страница поставщика по персональной ссылке. Без входа: доступ даёт только токен ссылки. */
-export default async function OfferPage({ params }: { params: { token: string } }) {
+export default async function OfferPage(props: { params: Promise<{ token: string }> }) {
+  const params = await props.params;
   const db = createAdminClient();
   const link = await findActiveLink(db, params.token);
   if (!link) {

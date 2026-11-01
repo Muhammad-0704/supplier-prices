@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function BoardPage() {
   const me = await requirePrice();
-  const data = await loadBoard(createClient(), me.userId);
+  const data = await loadBoard(await createClient(), me.userId);
   return (
     <main className="page">
       <Header role={data.role} userName={data.userName} current="board" />
