@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { AddCanteenUserForm } from '@/components/canteens/AddCanteenUserForm';
 import { CanteenHeader } from '@/components/canteens/CanteenHeader';
+import { TvLinkForm } from '@/components/canteens/TvLinkForm';
 import { Badge } from '@/components/ui';
 import { requireCanteens } from '@/lib/access';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -16,13 +17,14 @@ export default async function AccessPage() {
   const db = createClient();
   const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
 
-  const [{ data: canteens }, { data: links }, { data: people }, { data: admins }, { data: buyers }, users] = await Promise.all([
+  const [{ data: canteens }, { data: links }, { data: people }, { data: admins }, { data: buyers }, { data: tvLinks }, users] = await Promise.all([
     db.from('canteens').select('id, name').order('sort').order('name'),
     db.from('canteen_customers').select('customer_id, canteen_id'),
     db.from('profiles').select('id, full_name, role, canteen_role').not('canteen_role', 'is', null).order('created_at'),
     db.from('canteen_admins').select('user_id, canteen_id'),
     // Покупатели, на которых были расходные за 90 дней: подсказка, кого привязывать
     db.from('shipments').select('customer_id').gte('doc_date', since).limit(5000),
+    db.from('tv_links').select('id, name, token, active, created_at, last_opened_at').order('created_at'),
     createAdminClient().auth.admin.listUsers({ perPage: 200 }),
   ]);
   const emails = new Map((users.data?.users ?? []).map((u) => [u.id, u.email ?? '']));
@@ -119,6 +121,8 @@ export default async function AccessPage() {
             </table>
           )}
         </section>
+
+        <TvLinkForm links={tvLinks ?? []} />
       </div>
     </main>
   );
