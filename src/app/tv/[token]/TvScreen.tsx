@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { dayTitle } from '@/lib/canteens';
-import { FOODCOST_NORM, fcText, fcZone, shortMoney } from '@/lib/canteens-view';
+import { FOODCOST_NORM, fcText, fcZone } from '@/lib/canteens-view';
 import styles from './tv.module.css';
 
 /** Та же шкала 0–60%, что и в остальном приложении (components.css .fc), для консистентности. */
@@ -36,7 +36,7 @@ const SCREENS = [
   { id: 'hours', label: 'По часам' },
   { id: 'dishes', label: 'Блюда' },
   { id: 'month', label: 'Месяц' },
-  { id: 'week', label: 'Неделя' },
+  { id: 'week', label: 'Дни недели' },
   { id: 'cashiers', label: 'Кассиры' },
   { id: 'voids', label: 'Удаления' },
 ] as const;
@@ -51,131 +51,163 @@ function Clock() {
   return <span className={styles.clock}>{now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' })}</span>;
 }
 
-function HourBars({ hours }: { hours: TvHour[] }) {
-  const max = Math.max(1, ...hours.map((h) => h.revenue));
+/** Деньги для ТВ: до миллиона — полностью (46 120 ₽), дальше — 2,53 млн ₽ */
+const nf = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
+function money(v: number): string {
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(2).replace('.', ',')}\u00a0млн\u00a0₽`;
+  return `${nf.format(Math.round(v))}\u00a0₽`;
+}
+
+function Bars({ items, unit }: { items: { key: string; label: string; value: number | null; hot?: boolean }[]; unit?: (v: number) => string }) {
+  const max = Math.max(1, ...items.map((i) => i.value ?? 0));
   return (
     <div className={styles.bars}>
-      {hours.map((h) => (
-        <div key={h.hour} className={styles.barCol}>
-          <div className={styles.barTrack}><div className={styles.bar} style={{ height: `${Math.max(2, (h.revenue / max) * 100)}%` }} /></div>
-          <span className={styles.barLabel}>{h.hour}</span>
+      {items.map((i) => (
+        <div key={i.key} className={styles.barCol}>
+          <span className={styles.barVal}>{i.value ? (unit ? unit(i.value) : nf.format(Math.round(i.value))) : ''}</span>
+          <div className={styles.barTrack}>
+            <div className={`${styles.bar} ${i.hot ? styles.barHot : ''}`} style={{ height: `${i.value ? Math.max(3, (i.value / max) * 100) : 0}%` }} />
+          </div>
+          <span className={styles.barLabel}>{i.label}</span>
         </div>
       ))}
     </div>
   );
 }
 
-function WeekdayBars({ weekdays }: { weekdays: TvWeekday[] }) {
-  const max = Math.max(1, ...weekdays.map((w) => w.revenue ?? 0));
+const shortK = (v: number) => (v >= 1000 ? `${Math.round(v / 1000)}к` : nf.format(Math.round(v)));
+
+function Foodcost({ value, label }: { value: number | null; label: string }) {
   return (
-    <div className={styles.bars}>
-      {weekdays.map((w) => (
-        <div key={w.label} className={styles.barCol}>
-          <div className={styles.barTrack}><div className={styles.bar} style={{ height: `${w.revenue ? Math.max(2, (w.revenue / max) * 100) : 2}%` }} /></div>
-          <span className={styles.barLabel}>{w.label}</span>
-        </div>
-      ))}
+    <div className={styles.fcRow}>
+      <span className={styles.label}>{label}</span>
+      <span className={styles.fcVal}>{fcText(value)}</span>
+      <span className={styles.fcTrack} aria-hidden="true">
+        {value != null && <span className={styles.fcFill} style={{ width: `${Math.min(100, (value / FC_SCALE) * 100)}%` }} />}
+        <span className={styles.fcNorm} style={{ left: `${(FOODCOST_NORM / FC_SCALE) * 100}%` }} />
+      </span>
     </div>
   );
 }
+
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className={styles.stat}>
+      <span className={styles.label}>{label}</span>
+      <span className={styles.statVal}>{value}</span>
+      {sub && <span className={styles.statSub}>{sub}</span>}
+    </div>
+  );
+}
+
+function Rows({ rows }: { rows: { key: string; name: string; note?: string; value: string }[] }) {
+  return (
+    <ol className={styles.rows}>
+      {rows.map((r, i) => (
+        <li key={r.key} className={styles.row}>
+          <span className={styles.rank}>{i + 1}</span>
+          <span className={styles.rowName}>{r.name}{r.note && <span className={styles.rowNote}>{r.note}</span>}</span>
+          <span className={styles.rowVal}>{r.value}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const NoData = ({ text }: { text: string }) => <p className={styles.noData}>{text}</p>;
 
 function PointCard({ p, screen }: { p: TvPoint; screen: ScreenId }) {
-  const zone = fcZone(p.foodcost);
+  const zone = fcZone(screen === 'month' ? p.month.foodcost : p.foodcost);
   return (
     <section className={`${styles.card} ${styles[`zone_${zone}`]}`}>
-      <h2 className={styles.name}>{p.name}</h2>
+      <header className={styles.cardHead}>
+        <h2 className={styles.name}>{p.name}</h2>
+        {(screen === 'reports' || screen === 'sales') && (
+          <span className={p.reported ? styles.badgeGood : styles.badgeBad}>{p.reported ? 'Отчёт сдан' : 'Отчёт не сдан'}</span>
+        )}
+      </header>
 
       {screen === 'reports' && (
-        <>
-          <div className={styles.revenue}>{shortMoney(p.revenue)} ₽</div>
-          <div className={styles.fc}>{fcText(p.foodcost)}</div>
-          {p.foodcost != null && (
-            <div className={styles.fcTrack}>
-              <div className={styles.fcFill} style={{ width: `${Math.min(100, (p.foodcost / FC_SCALE) * 100)}%` }} />
-              <div className={styles.fcNorm} style={{ left: `${(FOODCOST_NORM / FC_SCALE) * 100}%` }} />
-            </div>
-          )}
-          <div className={styles.cashRow}>
-            <div className={styles.cashBlock}><span className={styles.cashLabel}>Наличные</span><span className={styles.cashVal}>{shortMoney(p.cash)} ₽</span></div>
-            <div className={styles.cashBlock}><span className={styles.cashLabel}>Безнал</span><span className={styles.cashVal}>{shortMoney(p.card)} ₽</span></div>
+        <div className={styles.body}>
+          <div>
+            <span className={styles.label}>Выручка сегодня</span>
+            <div className={styles.hero}>{money(p.revenue)}</div>
           </div>
-          <div className={styles.statusRow}>
-            <span className={p.reported ? styles.badgeGood : styles.badgeBad}>{p.reported ? 'Отчёт сдан' : 'Отчёт не сдан'}</span>
-            {p.mismatch != null && <span className={styles.badgeWarn}>Расхождение с кассой {shortMoney(Math.abs(p.mismatch))} ₽</span>}
+          <div className={styles.stats}>
+            <Stat label="Наличные" value={money(p.cash)} />
+            <Stat label="Безнал" value={money(p.card)} />
           </div>
-          <div className={styles.sub}><span>Склад {shortMoney(p.buy)} ₽</span><span>Мясо {shortMoney(p.meat)} ₽</span></div>
-        </>
+          <Foodcost value={p.foodcost} label="Фудкост" />
+          <footer className={styles.foot2}>
+            <span>Склад {money(p.buy)}</span>
+            <span>Мясо {p.meat ? money(p.meat) : '—'}</span>
+            {p.mismatch != null && <span className={styles.warnText}>Отчёт расходится с кассой на {money(Math.abs(p.mismatch))}</span>}
+          </footer>
+        </div>
       )}
 
       {screen === 'sales' && (
-        <>
-          <div className={styles.revenue}>{shortMoney(p.revenue)} ₽</div>
-          <div className={styles.cashRow}>
-            <div className={styles.cashBlock}><span className={styles.cashLabel}>Чеков</span><span className={styles.cashVal}>{p.checks || '—'}</span></div>
-            <div className={styles.cashBlock}><span className={styles.cashLabel}>Средний чек</span><span className={styles.cashVal}>{p.checks > 0 ? `${shortMoney(p.revenue / p.checks)} ₽` : '—'}</span></div>
+        <div className={styles.body}>
+          <div>
+            <span className={styles.label}>Покупателей сегодня</span>
+            <div className={styles.hero}>{p.checks ? nf.format(p.checks) : '—'}</div>
           </div>
-        </>
+          <div className={styles.stats}>
+            <Stat label="Средний чек" value={p.checks > 0 ? money(p.revenue / p.checks) : '—'} />
+            <Stat label="Выручка" value={money(p.revenue)} />
+          </div>
+        </div>
       )}
 
-      {screen === 'hours' && (
-        p.hours.length === 0 ? <p className={styles.noData}>Нет данных от кассы за сегодня.</p> : (
-          <>
-            {p.peakHour && <div className={styles.peak}>Пик: {p.peakHour.hour}:00 — {shortMoney(p.peakHour.revenue)} ₽</div>}
-            <HourBars hours={p.hours} />
-          </>
-        )
-      )}
+      {screen === 'hours' && (p.hours.length === 0 ? <NoData text="Касса за сегодня ещё ничего не прислала." /> : (
+        <div className={styles.body}>
+          {p.peakHour && <p className={styles.lead}>Пик — <b>{p.peakHour.hour}:00–{p.peakHour.hour + 1}:00</b>, {money(p.peakHour.revenue)}</p>}
+          <Bars unit={shortK} items={p.hours.map((h) => ({ key: String(h.hour), label: String(h.hour), value: h.revenue, hot: p.peakHour?.hour === h.hour }))} />
+        </div>
+      ))}
 
-      {screen === 'dishes' && (
-        p.topDishes.length === 0 ? <p className={styles.noData}>Нет данных от кассы за сегодня.</p> : (
-          <div className={styles.dishList}>
-            {p.topDishes.map((d, i) => (
-              <div key={d.dish} className={styles.dishRow}>
-                <span className={styles.dishRank}>{i + 1}</span>
-                <span className={styles.dishName}>{d.dish}</span>
-                <span className={styles.dishVal}>{shortMoney(d.revenue)} ₽</span>
-              </div>
-            ))}
-          </div>
-        )
-      )}
+      {screen === 'dishes' && (p.topDishes.length === 0 ? <NoData text="Касса за сегодня ещё ничего не прислала." /> : (
+        <div className={styles.body}>
+          <span className={styles.label}>Больше всего выручки сегодня</span>
+          <Rows rows={p.topDishes.map((d) => ({ key: d.dish, name: d.dish, note: `${nf.format(d.qty)} шт.`, value: money(d.revenue) }))} />
+        </div>
+      ))}
 
       {screen === 'month' && (
-        <>
-          <div className={styles.revenue}>{shortMoney(p.month.revenue)} ₽</div>
-          <div className={styles.fc}>{fcText(p.month.foodcost)}</div>
-          {p.month.foodcost != null && (
-            <div className={styles.fcTrack}>
-              <div className={styles.fcFill} style={{ width: `${Math.min(100, (p.month.foodcost / FC_SCALE) * 100)}%` }} />
-              <div className={styles.fcNorm} style={{ left: `${(FOODCOST_NORM / FC_SCALE) * 100}%` }} />
-            </div>
-          )}
-          <div className={styles.sub}><span>Склад {shortMoney(p.month.buy)} ₽</span><span>Мясо {shortMoney(p.month.meat)} ₽</span></div>
-        </>
-      )}
-
-      {screen === 'week' && (
-        p.weekdays.every((w) => !w.revenue) ? <p className={styles.noData}>Нет данных от кассы за эту неделю.</p> : <WeekdayBars weekdays={p.weekdays} />
-      )}
-
-      {screen === 'cashiers' && (
-        p.topCashiers.length === 0 ? <p className={styles.noData}>Нет данных от кассы за месяц.</p> : (
-          <div className={styles.dishList}>
-            {p.topCashiers.map((c, i) => (
-              <div key={c.cashier} className={styles.dishRow}>
-                <span className={styles.dishRank}>{i + 1}</span>
-                <span className={styles.dishName}>{c.cashier}</span>
-                <span className={styles.dishVal}>{shortMoney(c.revenue)} ₽</span>
-              </div>
-            ))}
+        <div className={styles.body}>
+          <div>
+            <span className={styles.label}>Выручка с начала месяца</span>
+            <div className={styles.hero}>{money(p.month.revenue)}</div>
           </div>
-        )
+          <Foodcost value={p.month.foodcost} label="Фудкост за месяц" />
+          <footer className={styles.foot2}>
+            <span>Склад {money(p.month.buy)}</span>
+            <span>Мясо {p.month.meat ? money(p.month.meat) : '—'}</span>
+          </footer>
+        </div>
       )}
+
+      {screen === 'week' && (p.weekdays.every((w) => !w.revenue) ? <NoData text="Касса за этот месяц ещё ничего не прислала." /> : (
+        <div className={styles.body}>
+          <p className={styles.lead}>Средняя выручка по дням недели за месяц</p>
+          <Bars unit={shortK} items={p.weekdays.map((w) => ({ key: w.label, label: w.label, value: w.revenue }))} />
+        </div>
+      ))}
+
+      {screen === 'cashiers' && (p.topCashiers.length === 0 ? <NoData text="Касса за этот месяц ещё ничего не прислала." /> : (
+        <div className={styles.body}>
+          <span className={styles.label}>Выручка кассиров с начала месяца</span>
+          <Rows rows={p.topCashiers.map((c) => ({ key: c.cashier, name: c.cashier, note: `${nf.format(c.checks)} чеков`, value: money(c.revenue) }))} />
+        </div>
+      ))}
 
       {screen === 'voids' && (
-        <div className={styles.cashRow}>
-          <div className={styles.cashBlock}><span className={styles.cashLabel}>Удалено за месяц</span><span className={styles.cashVal}>{p.voidsTotal.deletedCount || '—'}</span><span className={styles.cashSub}>{shortMoney(p.voidsTotal.deletedAmount)} ₽</span></div>
-          <div className={styles.cashBlock}><span className={styles.cashLabel}>Возвраты за месяц</span><span className={styles.cashVal}>{p.voidsTotal.returnsCount || '—'}</span><span className={styles.cashSub}>{shortMoney(p.voidsTotal.returnsAmount)} ₽</span></div>
+        <div className={styles.body}>
+          <span className={styles.label}>С начала месяца</span>
+          <div className={styles.stats}>
+            <Stat label="Удалено позиций" value={p.voidsTotal.deletedCount ? nf.format(p.voidsTotal.deletedCount) : '—'} sub={p.voidsTotal.deletedCount ? `на ${money(p.voidsTotal.deletedAmount)}` : undefined} />
+            <Stat label="Возвратов" value={p.voidsTotal.returnsCount ? nf.format(p.voidsTotal.returnsCount) : '—'} sub={p.voidsTotal.returnsCount ? `на ${money(p.voidsTotal.returnsAmount)}` : undefined} />
+          </div>
         </div>
       )}
     </section>
