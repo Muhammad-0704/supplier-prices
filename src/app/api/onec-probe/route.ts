@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { checkCronSecret } from '@/lib/cron-auth';
 import { basicAuth, buildUrl } from '@/lib/onec/odata';
 
 export const dynamic = 'force-dynamic';
@@ -10,8 +11,7 @@ export const maxDuration = 120;
  * Пример: /api/onec-probe?entity=Catalog_Номенклатура&top=5&select=Ref_Key,Description
  */
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) {
+  if (!checkCronSecret(request)) {
     return NextResponse.json({ ok: false, message: 'Нет доступа' }, { status: 401 });
   }
   const base = process.env.ONEC_ODATA_URL;
