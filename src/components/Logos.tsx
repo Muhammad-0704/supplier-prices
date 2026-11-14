@@ -1,7 +1,4 @@
-/**
- * Знаки экосистемы. Одна сетка 32×32, скругление 8, белые линии одной толщины —
- * сервисы выглядят семьёй, а цвет говорит, где ты: База — графит, Прайс-доска — жёлтый, Центр Питания — зелёный.
- */
+/** Знаки сервисов на общей сетке 32×32. */
 type P = { size?: number; className?: string; title?: string };
 
 function Frame({ size = 32, className, title, bg, children }: P & { bg: string; children: React.ReactNode }) {
@@ -16,11 +13,11 @@ function Frame({ size = 32, className, title, bg, children }: P & { bg: string; 
 /** База: склад — крыша и три ячейки стеллажа */
 export function BazaLogo(p: P) {
   return (
-    <Frame {...p} bg="#1b1e21">
-      <path d="M7 14.5 16 8l9 6.5" fill="none" stroke="#f5c518" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <rect x="9" y="16.5" width="4" height="7" rx="1" fill="#fff" />
-      <rect x="14" y="16.5" width="4" height="7" rx="1" fill="#fff" opacity=".7" />
-      <rect x="19" y="16.5" width="4" height="7" rx="1" fill="#fff" opacity=".45" />
+    <Frame {...p} bg="var(--signal)">
+      <path d="M7 14.5 16 8l9 6.5" fill="none" stroke="var(--ink-on-signal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="9" y="16.5" width="4" height="7" rx="1" fill="var(--ink-on-signal)" />
+      <rect x="14" y="16.5" width="4" height="7" rx="1" fill="var(--ink-on-signal)" opacity=".7" />
+      <rect x="19" y="16.5" width="4" height="7" rx="1" fill="var(--ink-on-signal)" opacity=".45" />
     </Frame>
   );
 }
@@ -29,9 +26,9 @@ export function BazaLogo(p: P) {
 export function PriceLogo(p: P) {
   const cells = [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => ({ r, c })));
   return (
-    <Frame {...p} bg="#f5c518">
+    <Frame {...p} bg="var(--surface-sunk)">
       {cells.map(({ r, c }) => (
-        <rect key={`${r}${c}`} x={7.5 + c * 6} y={7.5 + r * 6} width="5" height="5" rx="1.2" fill="#1b1e21" opacity={r === 1 && c === 1 ? 1 : 0.28} />
+        <rect key={`${r}${c}`} x={7.5 + c * 6} y={7.5 + r * 6} width="5" height="5" rx="1.2" fill="var(--ink)" opacity={r === 1 && c === 1 ? 1 : 0.28} />
       ))}
     </Frame>
   );
@@ -40,10 +37,10 @@ export function PriceLogo(p: P) {
 /** Центр Питания: тарелка с паром — горячая еда */
 export function FoodLogo(p: P) {
   return (
-    <Frame {...p} bg="#17703f">
-      <path d="M12 7.5c-1.2 1.4 1.2 2.6 0 4M16 6.5c-1.2 1.6 1.2 3 0 4.6M20 7.5c-1.2 1.4 1.2 2.6 0 4" fill="none" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" opacity=".75" />
-      <path d="M8 15h16a8 8 0 0 1-16 0Z" fill="#fff" />
-      <path d="M11 25.5h10" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    <Frame {...p} bg="var(--surface-sunk)">
+      <path d="M12 7.5c-1.2 1.4 1.2 2.6 0 4M16 6.5c-1.2 1.6 1.2 3 0 4.6M20 7.5c-1.2 1.4 1.2 2.6 0 4" fill="none" stroke="var(--ink)" strokeWidth="1.6" strokeLinecap="round" opacity=".75" />
+      <path d="M8 15h16a8 8 0 0 1-16 0Z" fill="var(--ink)" />
+      <path d="M11 25.5h10" stroke="var(--ink)" strokeWidth="2" strokeLinecap="round" />
     </Frame>
   );
 }

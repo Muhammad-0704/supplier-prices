@@ -34,8 +34,7 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
   const isCurrent = month === mskMonth();
 
   return (
-    <main className="page">
-      <CanteenHeader me={me} current="points" />
+    <CanteenHeader me={me} current="points">
       {canteens.length === 0 ? (
         <div className="notice">{manager ? 'Точек пока нет.' : 'Вам ещё не назначили точку. Попросите руководителя открыть её в разделе «Доступы».'}</div>
       ) : (
@@ -50,6 +49,6 @@ export default async function CanteensPage({ searchParams }: { searchParams: { m
         />
       )}
       {iikoState && !iikoState.ok && <p className="cn-foot err">Выручка из iiko не обновилась: {iikoState.message}</p>}
-    </main>
+    </CanteenHeader>
   );
 }

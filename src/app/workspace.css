@@ -1,0 +1,102 @@
+.workspace-frame {
+  height: 100vh;
+  height: 100dvh;
+}
+
+.workspace-shell.obsidian-dashboard-shell,
+.obsidian-dashboard-shell-layer {
+  --obsidian-dashboard-shell-background: var(--paper);
+  --obsidian-dashboard-shell-sidebar: var(--surface);
+  --obsidian-dashboard-shell-panel: var(--surface);
+  --obsidian-dashboard-shell-control: var(--surface);
+  --obsidian-dashboard-shell-foreground: var(--ink);
+  --obsidian-dashboard-shell-text-muted: var(--ink-muted);
+  --obsidian-dashboard-shell-text-subtle: var(--ink-muted);
+  --obsidian-dashboard-shell-icon: var(--ink-muted);
+  --obsidian-dashboard-shell-muted: var(--surface-sunk);
+  --obsidian-dashboard-shell-muted-hover: var(--surface-hover);
+  --obsidian-dashboard-shell-hover: var(--surface-hover);
+  --obsidian-dashboard-shell-border: var(--line);
+  --obsidian-dashboard-shell-border-strong: var(--line);
+  --obsidian-dashboard-shell-ring: var(--focus);
+  --obsidian-dashboard-shell-accent: var(--signal);
+  --obsidian-dashboard-shell-accent-hover: var(--signal-ink);
+  --obsidian-dashboard-shell-accent-foreground: var(--ink-on-signal);
+  --obsidian-dashboard-shell-accent-shadow: none;
+  --obsidian-dashboard-shell-control-shadow: inset 0 0 0 1px var(--line);
+}
+
+.workspace-shell > section[aria-labelledby] > header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.workspace-shell > section[aria-labelledby] > header > div:first-child {
+  min-height: 60px;
+  padding-inline: clamp(16px, 3vw, 32px);
+}
+
+.workspace-shell > section[aria-labelledby] > header h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.workspace-shell :is(aside, [role="dialog"]:has(nav)) > div > div:first-child {
+  min-height: 60px;
+  padding-inline: 16px;
+}
+
+.workspace-shell nav ul { list-style: none; margin: 0; padding: 0; }
+.workspace-shell nav a[data-active] { height: 38px; text-decoration: none; }
+.workspace-shell nav a[data-active="true"] { font-weight: 650; }
+.workspace-shell nav a[data-active="true"] svg { color: var(--ink); }
+.workspace-content { --gutter: clamp(16px, 3vw, 32px); max-width: 1920px; margin-inline: auto; min-width: 0; }
+.workspace-content > * { min-width: 0; }
+.workspace-actions { display: flex; align-items: center; gap: 4px; }
+.workspace-user { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.workspace-user__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunk);
+  color: var(--ink-muted);
+}
+.workspace-user__identity { display: grid; gap: 2px; min-width: 0; line-height: 16px; }
+.workspace-user__identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.workspace-user__identity span { color: var(--ink-muted); font-size: 11px; }
+
+.auth:has(.auth__masthead) {
+  min-height: 100dvh;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-8);
+  padding: clamp(16px, 4vw, 32px);
+}
+.auth__masthead {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.auth__masthead > span { display: inline-flex; align-items: center; gap: 9px; font-weight: 650; }
+.auth:has(.auth__masthead) .auth__box {
+  width: min(400px, 100%);
+  margin-block: 0 clamp(16px, 7vh, 72px);
+  padding: clamp(20px, 5vw, 32px);
+  gap: 18px;
+}
+.auth__heading h1 { letter-spacing: -0.025em; font-size: 25px; }
+.auth__heading p, .auth__help { margin: 6px 0 0; color: var(--ink-muted); }
+.auth__help { margin: 0; font-size: 12px; line-height: 18px; }
+.auth__submit { width: 100%; cursor: pointer; }
+
+@media (max-width: 640px) {
+  .workspace-shell > section[aria-labelledby] > header > div:first-child { min-height: 54px; padding-block: 8px; }
+  .workspace-shell > section[aria-labelledby] > header h1 { font-size: 14px; }
+  .workspace-actions { gap: 0; }
+  .workspace-actions form .pb-btn { padding-inline: 6px; }
+}

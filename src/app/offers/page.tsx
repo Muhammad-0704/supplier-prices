@@ -32,15 +32,14 @@ export default async function OffersPage({ searchParams }: { searchParams: { tab
   const tab = searchParams.tab === 'links' ? 'links' : searchParams.tab === 'import' ? 'import' : 'offers';
 
   return (
-    <main className="page">
-      <Header role="manager" userName={me.full_name || ''} current="offers" />
+    <Header role="manager" userName={me.full_name || ''} current="offers">
       <nav className="tabs" aria-label="Разделы предложений">
         <Link href="/offers" aria-current={tab === 'offers' ? 'page' : undefined}>Предложения</Link>
         <Link href="/offers?tab=import" aria-current={tab === 'import' ? 'page' : undefined}>Загрузить прайс</Link>
         <Link href="/offers?tab=links" aria-current={tab === 'links' ? 'page' : undefined}>Ссылки</Link>
       </nav>
       {tab === 'offers' ? <OffersTab archive={searchParams.view === 'archive'} /> : tab === 'import' ? <ImportTab userId={user.id} /> : <LinksTab />}
-    </main>
+    </Header>
   );
 }
 

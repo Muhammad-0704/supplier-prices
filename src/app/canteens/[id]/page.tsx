@@ -68,8 +68,7 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
   const others = all.filter((c) => c.id !== canteen.id);
 
   return (
-    <main className="page">
-      <CanteenHeader me={me} current="points" />
+    <CanteenHeader me={me} current="points">
       <div className="cn-title">
         {(manager || others.length > 0) && <Link href={`/canteens?month=${month}`} className="cn-back">← Все точки</Link>}
         <h2>{canteen.name}</h2>
@@ -173,6 +172,6 @@ export default async function CanteenPage({ params, searchParams }: { params: { 
         )}
         {byCost && days.length > 0 && <p className="muted cn-foot">* Склад — по закупочным ценам (последняя закупка до даты отгрузки). Внутри дня — накладные как в 1С, по ценам расходных.</p>}
       </section>
-    </main>
+    </CanteenHeader>
   );
 }

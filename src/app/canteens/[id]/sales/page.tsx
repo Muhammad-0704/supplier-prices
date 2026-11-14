@@ -36,8 +36,7 @@ export default async function SalesPage({ params, searchParams }: { params: { id
   const others = all.filter((c) => c.id !== canteen.id);
 
   return (
-    <main className="page">
-      <CanteenHeader me={me} current="points" />
+    <CanteenHeader me={me} current="points">
       <div className="cn-title">
         {(manager || others.length > 0) && <Link href={`/canteens?month=${month}`} className="cn-back">← Все точки</Link>}
         <h2>{canteen.name}</h2>
@@ -71,6 +70,6 @@ export default async function SalesPage({ params, searchParams }: { params: { id
           {v && <VoidList v={v} />}
         </>
       )}
-    </main>
+    </CanteenHeader>
   );
 }

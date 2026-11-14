@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
+import '@fontsource-variable/inter';
+import './shell-utilities.css';
 import './globals.css';
+import './workspace.css';
 
 export const metadata: Metadata = {
   title: { default: 'База', template: '%s · База' },
@@ -11,7 +14,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#f4f4f1',
+  themeColor: '#fafafa',
 };
 
 /** Светлая тема по умолчанию; тёмная, если человек выбрал её переключателем. Ставится до отрисовки, без мигания. */
@@ -22,11 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru" data-theme="light" suppressHydrationWarning>
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" />
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>{children}</body>
     </html>

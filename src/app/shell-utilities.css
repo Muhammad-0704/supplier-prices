@@ -1,0 +1,32 @@
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+@source '../components/block/dashboard-shell.tsx';
+@source '../components/ui/button.tsx';
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* The imported controls expect Preflight. Reset only them, preserving the existing forms. */
+@layer base {
+  [data-slot="button"], [data-slot="dashboard-button"] {
+    appearance: none;
+    border: 0 solid transparent;
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+  }
+}
+
+@theme inline {
+  --color-background: var(--surface);
+  --color-foreground: var(--ink);
+  --color-primary: var(--signal);
+  --color-primary-foreground: var(--ink-on-signal);
+  --color-secondary: var(--surface-sunk);
+  --color-secondary-foreground: var(--ink);
+  --color-accent: var(--surface-hover);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--bad);
+  --color-input: var(--line);
+  --color-ring: var(--focus);
+}

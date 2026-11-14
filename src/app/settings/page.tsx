@@ -40,8 +40,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
   const tab = (tabs.find((t) => t.id === searchParams.tab) ?? tabs[0]).id;
 
   return (
-    <main className="page">
-      <Header role={role} userName={me.full_name || ''} current="settings" />
+    <Header role={role} userName={me.full_name || ''} current="settings">
       {tabs.length > 1 && (
         <nav className="tabs" aria-label="Разделы настроек">
           {tabs.map((t) => <Link key={t.id} href={t.id === 'profile' ? '/settings' : `/settings?tab=${t.id}`} aria-current={tab === t.id ? 'page' : undefined}>{t.label}</Link>)}
@@ -54,7 +53,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
         {tab === 'notify' && <NotifyTab />}
         {tab === 'onec' && <OnecTab />}
       </div>
-    </main>
+    </Header>
   );
 }
 
