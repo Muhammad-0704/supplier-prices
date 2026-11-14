@@ -5,7 +5,7 @@
 .pb-btn:focus-visible, .pb-chip:focus-visible, .pb-seg button:focus-visible, .pb-cell:focus-visible, .pb-card:focus-visible, .pb-search input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* Button */
-.pb-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--control-h); padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1; cursor: pointer; white-space: nowrap; }
+.pb-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: var(--control-h); padding: 0 14px; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 600; line-height: 1; cursor: pointer; white-space: nowrap; text-decoration: none; }
 .pb-btn:hover { background: var(--surface-hover); }
 .pb-btn:disabled { opacity: .5; cursor: default; }
 .pb-btn--primary { background: var(--signal); border-color: var(--signal); color: var(--ink-on-signal); }

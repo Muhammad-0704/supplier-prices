@@ -1,14 +1,16 @@
 'use client';
 import { useFormState, useFormStatus } from 'react-dom';
 import { BazaLogo } from '@/components/Logos';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
 import { signIn } from './actions';
 
 function Submit() {
   const { pending } = useFormStatus();
   return (
-    <button className="pb-btn pb-btn--primary" type="submit" disabled={pending} style={{ width: '100%' }}>
+    <Button className="auth__submit" type="submit" disabled={pending}>
       {pending ? 'Входим…' : 'Войти'}
-    </button>
+    </Button>
   );
 }
 
@@ -16,14 +18,12 @@ export default function LoginPage() {
   const [state, action] = useFormState(signIn, null);
   return (
     <main className="auth">
-      <form className="auth__box" action={action}>
-        <div className="brand">
-          <BazaLogo size={36} />
-          <div>
-            <h1>База</h1>
-            <div className="brand__sub">Прайс-доска и Центр Питания</div>
-          </div>
-        </div>
+      <div className="auth__masthead"><span><BazaLogo size={30} />База</span><ThemeToggle /></div>
+      <form className="auth__box" action={action} aria-labelledby="login-title">
+        <header className="auth__heading">
+          <h1 id="login-title">Вход в Базу</h1>
+          <p>Прайс-доска и Центр Питания</p>
+        </header>
         <div className="field">
           <label htmlFor="email">Почта</label>
           <input className="input" id="email" name="email" type="email" autoComplete="email" required />
@@ -34,7 +34,7 @@ export default function LoginPage() {
         </div>
         {state?.error && <p className="err" role="alert">{state.error}</p>}
         <Submit />
-        <p className="muted" style={{ margin: 0, fontSize: 12 }}>Аккаунт выдаёт руководитель. Забыли пароль — попросите его прислать приглашение заново.</p>
+        <p className="auth__help">Аккаунт выдаёт руководитель. Забыли пароль — попросите его прислать приглашение заново.</p>
       </form>
     </main>
   );

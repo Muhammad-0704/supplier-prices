@@ -17,9 +17,8 @@ export default async function OrderPage() {
   const data = await loadOrder(db);
 
   return (
-    <main className="page">
-      <Header role={role} userName={me.full_name || ''} current="order" />
+    <Header role={role} userName={me.full_name || ''} current="order">
       <OrderBoard rows={data.rows} suppliers={data.suppliers} skipped={data.skipped} manager={role === 'manager'} />
-    </main>
+    </Header>
   );
 }

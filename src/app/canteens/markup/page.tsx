@@ -58,8 +58,7 @@ export default async function MarkupPage({ searchParams }: { searchParams: { mon
   };
 
   return (
-    <main className="page">
-      <CanteenHeader me={me} current="markup" />
+    <CanteenHeader me={me} current="markup">
 
       <section className="card-box">
         <div className="cn-head">
@@ -163,6 +162,6 @@ export default async function MarkupPage({ searchParams }: { searchParams: { mon
           </div>
         )}
       </section>
-    </main>
+    </CanteenHeader>
   );
 }

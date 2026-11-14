@@ -1,33 +1,18 @@
-import Link from 'next/link';
 import type { Access, CanteenRole } from '@/lib/access';
-import { FoodLogo } from '../Logos';
-import { ThemeToggle } from '../ThemeToggle';
-import { Badge } from '../ui';
+import { WorkspaceShell, type WorkspaceLink } from '../WorkspaceShell';
 
-export function CanteenHeader({ me, current }: { me: Access & { canteenRole: CanteenRole }; current: 'points' | 'markup' | 'access' }) {
+export function CanteenHeader({ me, current, children }: {
+  me: Access & { canteenRole: CanteenRole };
+  current: 'points' | 'markup' | 'access';
+  children: React.ReactNode;
+}) {
   const manager = me.canteenRole === 'manager';
+  const links: WorkspaceLink[] = [{ id: 'points', label: 'Точки', href: '/canteens' }];
+  if (manager) links.push({ id: 'access', label: 'Доступы', href: '/canteens/access' });
+  const title = current === 'access' ? 'Доступы к точкам' : current === 'markup' ? 'Наценка склада' : 'Центр Питания';
   return (
-    <header className="top">
-      <div className="brand">
-        <Link href={me.services.length > 1 ? '/' : '/canteens'} className="brand__home" aria-label="На главную" tabIndex={-1}>
-          <FoodLogo size={32} />
-        </Link>
-        <div>
-          <Link href="/canteens" className="brand__home"><h1>Центр Питания</h1></Link>
-          <div className="brand__sub">
-            {me.name} <Badge tone="role">{manager ? 'руководитель' : 'админ точки'}</Badge>
-          </div>
-        </div>
-      </div>
-      <div className="top__right">
-        <nav className="nav" aria-label="Разделы">
-          <Link href="/canteens" aria-current={current === 'points' ? 'page' : undefined}>Точки</Link>
-          {manager && <Link href="/canteens/access" aria-current={current === 'access' ? 'page' : undefined}>Доступы</Link>}
-          {me.services.length > 1 && <Link href="/">Все сервисы</Link>}
-          <ThemeToggle />
-          <form action="/auth/signout" method="post"><button className="pb-btn pb-btn--quiet pb-btn--sm" type="submit">Выйти</button></form>
-        </nav>
-      </div>
-    </header>
+    <WorkspaceShell title={title} group="Центр Питания" userName={me.name} role={manager ? 'Руководитель' : 'Админ точки'} current={current} links={links} showServiceLink={me.services.length > 1}>
+      {children}
+    </WorkspaceShell>
   );
 }

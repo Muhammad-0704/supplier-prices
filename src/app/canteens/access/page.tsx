@@ -38,8 +38,7 @@ export default async function AccessPage() {
     .sort((a, b) => Number(!!b.canteen) - Number(!!a.canteen) || a.name.localeCompare(b.name, 'ru'));
 
   return (
-    <main className="page">
-      <CanteenHeader me={me} current="access" />
+    <CanteenHeader me={me} current="access">
       <div className="settings">
         <section className="card-box">
           <h2>Люди</h2>
@@ -124,6 +123,6 @@ export default async function AccessPage() {
 
         <TvLinkForm links={tvLinks ?? []} />
       </div>
-    </main>
+    </CanteenHeader>
   );
 }
